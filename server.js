@@ -2,7 +2,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
-import session from 'express-session';
 import mysql from 'mysql2/promise';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
@@ -17,37 +16,19 @@ const allowedOrigins = [
 ];
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permite requisições de qualquer uma das origens na sua lista
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true, // <-- ADICIONE ESTA LINHA!
   optionsSuccessStatus: 200
 };
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.set('trust proxy', 1); // Necessário para o Render/Heroku
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET, // Uma string longa e aleatória no seu .env
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: true,       // Exige HTTPS. O Render fornece isso.
-      httpOnly: true,     // ESSENCIAL: Impede acesso via JavaScript
-      sameSite: 'none',   // Necessário para requisições cross-domain (frontend em mercotech.com.br, backend em onrender.com)
-      maxAge: 24 * 60 * 60 * 1000 // Duração da sessão (ex: 24 horas)
-    },
-  })
-);
-
 let pool;
 try {
   pool = mysql.createPool({
@@ -68,14 +49,6 @@ try {
   console.error('Erro fatal ao criar o pool de conexões com o DB:', error);
   process.exit(1);
 }
-
-const isAuthenticated = (req, res, next) => {
-  if (req.session.user) {
-    next();
-  } else {
-    res.status(401).json({ success: false, message: 'Acesso não autenticado. Por favor, faça o login.' });
-  }
-};
 
 async function testDbConnection() {
   if (!pool) {
@@ -271,6 +244,7 @@ async function fetchOrderDetails(orderId) {
     }
 }
 
+// --- ROTAS DA API ---
 
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
@@ -279,7 +253,6 @@ app.post('/api/login', async (req, res) => {
     }
 
     try {
-  
         const jsonUrl = 'https://mercotech.com.br/internos/data/users.json';
         const response = await fetch(jsonUrl);
 
@@ -287,12 +260,18 @@ app.post('/api/login', async (req, res) => {
             console.error(`Falha ao buscar o arquivo de usuários em ${jsonUrl}. Status: ${response.status}`);
             throw new Error('Não foi possível acessar os dados de autenticação.');
         }
-        
-        const usersObject = await response.json();
-        const usersArray = Object.values(usersObject);
-        const user = usersArray.find(u => u.email === email);
+   const usersObject = await response.json();
+// Converte os valores do objeto em um array
+const usersArray = Object.values(usersObject); 
+
+if (!Array.isArray(usersArray)) { 
+    // Esta verificação agora é redundante, mas podemos manter por segurança
+    throw new Error('O formato dos dados de usuário é inválido após a conversão.');
+}
+
+const user = usersArray.find(u => u.email === email);
         if (!user) {
-            return res.status(401).json({ success: false, message: 'Email não encontrado ou credenciais inválidas.' });
+            return res.status(401).json({ success: false, message: 'Email não encontrado.' });
         }
         if (user.is_auth !== 1) {
             return res.status(403).json({ success: false, message: 'Usuário não possui permissão para acessar o sistema.' });
@@ -300,35 +279,35 @@ app.post('/api/login', async (req, res) => {
         const passwordMatches = await bcrypt.compare(password, user.password);
 
         if (!passwordMatches) {
-            return res.status(401).json({ success: false, message: 'Senha incorreta ou credenciais inválidas.' });
+            return res.status(401).json({ success: false, message: 'Senha incorreta.' });
         }
         let connection;
-        let userRole = 'solicitante';
         try {
             connection = await pool.getConnection();
             const [roleRows] = await connection.execute(
                 'SELECT role FROM role_assignments WHERE email = ? LIMIT 1',
                 [email]
             );
+            connection.release();
+
+            let userRole = 'solicitante';
             if (roleRows.length > 0) {
                 userRole = roleRows[0].role;
             }
+            res.json({
+                success: true,
+                message: 'Login bem-sucedido!',
+                user: {
+                    email: user.email,
+                    name: user.name,
+                    role: userRole,
+                },
+            });
         } catch (dbError) {
-            console.error('Erro ao buscar função do usuário no banco de dados:', dbError);
-        } finally {
             if (connection) connection.release();
+            console.error('Erro ao buscar função do usuário no banco de dados:', dbError);
+            throw new Error('Erro ao definir permissões do usuário.');
         }
-        req.session.user = {
-            email: user.email,
-            name: user.name,
-            role: userRole,
-        };
-        res.status(200).json({
-            success: true,
-            message: 'Login bem-sucedido!',
-            user: req.session.user,
-        });
-
     } catch (error) {
         console.error('Erro geral no endpoint de login:', error);
         res.status(500).json({ success: false, message: error.message || 'Erro interno do servidor durante o login.' });
@@ -412,7 +391,7 @@ app.post('/api/service-orders', async (req, res) => {
     }
 });
 
-app.get('/api/service-orders', isAuthenticated, async (req, res) => {
+app.get('/api/service-orders', async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
@@ -940,7 +919,7 @@ app.get('/api/event-days-in-month', async (req, res) => {
     }
 });
 
-app.get('/api/kpis' , async (req, res) => {
+app.get('/api/kpis', async (req, res) => {
     const { year, month } = req.query;
 
     const targetYear = parseInt(year) || new Date().getFullYear();
