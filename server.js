@@ -1905,7 +1905,7 @@ app.get('/api/kpis', async (req, res) => {
 });
 
 
-app.get('/api/equipments', isAuthenticated ,async (req, res) => {
+app.get('/api/equipments', async (req, res) => {
 
     let connection;
 
