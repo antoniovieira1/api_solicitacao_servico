@@ -627,7 +627,7 @@ app.post('/api/service-orders/:orderId/cipa-analysis', async (req, res) => {
 
 const allowedRoles = ['pcm', 'cipa', 'seguranca', 'laboratorio', 'administrador'];
 
-app.get('/api/roles', isAuthenticated, async (req, res) => {
+app.get('/api/roles', async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
@@ -684,7 +684,7 @@ app.delete('/api/roles/:id', async (req, res) => {
     }
 });
 
-app.get('/api/calendar-events', isAuthenticated, async (req, res) => {
+app.get('/api/calendar-events', async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
@@ -725,7 +725,7 @@ app.get('/api/calendar-events', isAuthenticated, async (req, res) => {
     }
 });
 
-app.get('/api/daily-tasks', isAuthenticated , async (req, res) => {
+app.get('/api/daily-tasks', async (req, res) => {
     const { date } = req.query;
 
     if (!date) {
@@ -908,7 +908,7 @@ app.post('/api/service-orders/:orderId/lab-reevaluation', async (req, res) => {
     }
 });
 
-app.get('/api/event-days-in-month', isAuthenticated, async (req, res) => {
+app.get('/api/event-days-in-month', async (req, res) => {
     const { year, month } = req.query;
 
     if (!year || !month) {
@@ -940,7 +940,7 @@ app.get('/api/event-days-in-month', isAuthenticated, async (req, res) => {
     }
 });
 
-app.get('/api/kpis', isAuthenticated , async (req, res) => {
+app.get('/api/kpis' , async (req, res) => {
     const { year, month } = req.query;
 
     const targetYear = parseInt(year) || new Date().getFullYear();
@@ -991,7 +991,7 @@ app.get('/api/kpis', isAuthenticated , async (req, res) => {
     }
 });
 
-app.get('/api/equipments', isAuthenticated ,async (req, res) => {
+app.get('/api/equipments', async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
