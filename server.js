@@ -17,14 +17,17 @@ const allowedOrigins = [
 ];
 const corsOptions = {
   origin: function (origin, callback) {
+    // Permite requisições de qualquer uma das origens na sua lista
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
+  credentials: true, // <-- ADICIONE ESTA LINHA!
   optionsSuccessStatus: 200
 };
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
