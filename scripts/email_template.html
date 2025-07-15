@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .header {
+            background-color: rgb(0,81,27);
+            padding: 20px;
+            text-align: center;
+        }
+        .header img {
+            max-width: 200px;
+        }
+        .content {
+            padding: 30px;
+            line-height: 1.6;
+            color: #333333;
+        }
+        .content h1 {
+            color: rgb(0,81,27);
+        }
+        .footer {
+            background-color: #f4f4f4;
+            color: #777777;
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 25px;
+            margin-top: 20px;
+            background-color: rgb(0,81,27);
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            justify-content: center;
+            display: flex;
+            width: fit-content;
+            margin:0px auto;
+        }
+        .soli{
+          text-align: center;
+          color:rgb(0,81,27);
+          font-size: 1rem;
+        }
+        .align{
+          text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://mercotech.com.br/app/imgs/melcobranca.png" alt="Logo Mercotech">
+        </div>
+        <h1 class="soli">Solicitação de Serviço</h1>
+        <div class="content">
+            <h1 class="soli">{ASSUNTO}</h1>
+            <p class="align">{MENSAGEM}</p>
+            <a href="https://www.mercotech.com.br/ossm/login" class="button">Acessar o Sistema</a>
+        </div>
+        <div class="footer">
+            <p>Este é um e-mail automático. Por favor, não responda.</p>
+            <p>&copy; 2025 Mercotech. Todos os direitos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>
