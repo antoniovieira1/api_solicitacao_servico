@@ -11,6 +11,7 @@
   "keywords": [
     "nodejs",
     "express",
+    "express-session",
     "python",
     "email",
     "render"
