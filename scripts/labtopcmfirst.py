@@ -17,7 +17,7 @@ def send_notification(recipient_email, ossm_id):
 def send_email(recipient, subject, message_body):
     # (Copie a função send_email)
     try:
-        with open('../templates/email_template.html', 'r', encoding='utf-8') as f:
+        with open('email_template.html', 'r', encoding='utf-8') as f:
             html_template = f.read()
         html_content = html_template.replace('{ASSUNTO}', subject).replace('{MENSAGEM}', message_body)
         msg = MIMEMultipart('alternative')
