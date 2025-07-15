@@ -10,8 +10,8 @@ SMTP_USER = 'status@mercotech.com.br'
 SMTP_PASSWORD = 'ukr>d@fZD*I#D$y5Ji*@'
 
 def send_notification(recipient_email, ossm_id):
-    subject = f"OSSM {ossm_id}: Análise de Segurança Concluída"
-    message_body = f"Olá, Equipe PCM,<br><br>A análise de segurança para a <b>OSSM {ossm_id}</b> foi concluída e a ordem de serviço está pronta para execução."
+    subject = f"SS {ossm_id}: Análise de Segurança Concluída"
+    message_body = f"Olá, Equipe PCM,<br><br>A análise de segurança para a <b>SS {ossm_id}</b> foi concluída e a ordem de serviço está pronta para execução."
     send_email(recipient_email, subject, message_body)
 
 def send_email(recipient, subject, message_body):

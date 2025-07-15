@@ -7,11 +7,11 @@ from email.mime.text import MIMEText
 SMTP_SERVER = 'mail.mercotech.com.br'
 SMTP_PORT = 587
 SMTP_USER = 'status@mercotech.com.br'
-SMTP_PASSWORD = 'SUA_SENHA_AQUI'
+SMTP_PASSWORD = 'ukr>d@fZD*I#D$y5Ji*@'
 
 def send_notification(recipient_email, ossm_id):
-    subject = f"OSSM {ossm_id}: Avaliação do Laboratório Concluída"
-    message_body = f"Olá, Equipe PCM,<br><br>A avaliação inicial do laboratório para a <b>OSSM {ossm_id}</b> foi finalizada. A ordem está pronta para execução."
+    subject = f"SS {ossm_id}: Avaliação do Laboratório Concluída"
+    message_body = f"Olá, Equipe PCM,<br><br>A avaliação inicial do laboratório para a <b>SS {ossm_id}</b> foi finalizada. A ordem está pronta para execução."
     send_email(recipient_email, subject, message_body)
 
 def send_email(recipient, subject, message_body):

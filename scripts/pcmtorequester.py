@@ -10,7 +10,7 @@ SMTP_USER = 'status@mercotech.com.br'
 SMTP_PASSWORD =  'ukr>d@fZD*I#D$y5Ji*@'
 
 def send_notification(recipient_email, ossm_id):
-    subject = f"Sua Solicitação de Serviço (OSSM {ossm_id}) foi Finalizada"
+    subject = f"Sua Solicitação de Serviço (SS {ossm_id}) foi Finalizada"
     message_body = f"Olá,<br><br>Temos boas notícias! A sua solicitação de serviço, agora identificada como <b>OSSM {ossm_id}</b>, foi concluída com sucesso pela equipe de manutenção."
     send_email(recipient_email, subject, message_body)
 
