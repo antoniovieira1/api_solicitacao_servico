@@ -11,8 +11,7 @@ import { fileURLToPath } from 'url';
 const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
-  'https://mercotech.com.br',
-  'https://www.mercotech.com.br'
+  'https://api-solicitacao-servico.onrender.com'
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -87,6 +86,30 @@ async function testDbConnection() {
   }
 }
 testDbConnection();
+
+let allUsersCache = [];
+let lastCacheTime = 0;
+
+async function getAllUsers() {
+    if (Date.now() - lastCacheTime > 300000 || allUsersCache.length === 0) {
+        try {
+            const jsonUrl = 'https://mercotech.com.br/internos/data/users.json';
+            const response = await fetch(jsonUrl);
+            if (!response.ok) {
+                console.error(`Falha ao buscar o arquivo de usuários em ${jsonUrl}.`);
+                return allUsersCache;
+            }
+            const usersObject = await response.json();
+            allUsersCache = Object.values(usersObject);
+            lastCacheTime = Date.now();
+        } catch (error) {
+            console.error('Erro ao buscar ou processar users.json:', error);
+            return allUsersCache;
+        }
+    }
+    return allUsersCache;
+}
+
 function executePythonScript(scriptName, args = []) {
   const scriptPath = path.join(__dirname, 'scripts', scriptName);
   const pythonProcess = spawn('python3', [scriptPath, ...args]);
@@ -99,14 +122,15 @@ function executePythonScript(scriptName, args = []) {
   pythonProcess.on('close', (code) => {
     console.log(`[Python: ${scriptName}] exited with code ${code}`);
   });
-}async function fetchOrderDetails(orderId) {
+}// Substitua a sua função fetchOrderDetails inteira por esta versão
+
+async function fetchOrderDetails(orderId) {
     let connection;
     try {
         connection = await pool.getConnection();
         const sql = `
       SELECT
         so.*,
-        req_user.Nome as requesterName,
         pa.pcm_comments, pa.requires_lab_evaluation, pa.scheduled_start_date,
         pa.scheduled_end_date, pa.total_downtime,
         pa.analyst_email AS pcm_analyst_email, 
@@ -125,7 +149,7 @@ function executePythonScript(scriptName, args = []) {
         ca.cipa_analysis_date AS cipa_analysis_fill_date_on_temp,
         ca.cipa_approved AS cipa_action_approved,
         ca.cipa_approver_email AS cipa_action_approver_email,
-        cipa_approver_user.Nome as cipaApproverName,
+        -- Removida a busca pelo nome do cipa_approver aqui, faremos no código
         ca.cipa_approval_date AS cipa_action_approval_date,
         ca.cipa_approved_reason AS cipa_action_approved_reason,
         ca.cipa_rejection_reason AS cipa_action_rejection_reason,
@@ -151,11 +175,9 @@ function executePythonScript(scriptName, args = []) {
         lab_reevaluator_user.Nome as labReevaluatorName,
         lr.evaluation_date AS lab_reevaluation_date
       FROM service_orders so
-      LEFT JOIN imports req_user ON so.requester_email = req_user.Email
       LEFT JOIN pcm_analysis pa ON so.id = pa.service_order_id
       LEFT JOIN imports pcm_approver_user ON pa.pcm_approver_email = pcm_approver_user.Email
       LEFT JOIN cipa_analysis_temp ca ON so.id = ca.service_order_id
-      LEFT JOIN imports cipa_approver_user ON ca.cipa_approver_email = cipa_approver_user.Email
       LEFT JOIN lab_analysis la ON so.id = la.service_order_id
       LEFT JOIN imports lab_evaluator_user ON la.lab_approval_email = lab_evaluator_user.Email
       LEFT JOIN pcm_execution pe ON so.id = pe.service_order_id
@@ -165,8 +187,17 @@ function executePythonScript(scriptName, args = []) {
       WHERE so.id = ?
     `;
         const [rows] = await connection.execute(sql, [orderId]);
+        
         if (rows.length > 0) {
             const orderData = rows[0];
+
+            // Busca a lista de usuários do JSON
+            const allUsers = await getAllUsers();
+            
+            // Encontra o solicitante e o validador de segurança na lista
+            const requesterInfo = allUsers.find(u => u.email === orderData.requester_email);
+            const safetyApproverInfo = allUsers.find(u => u.email === orderData.cipa_action_approver_email); // ✅ LINHA ADICIONADA
+
             const orderToReturn = {
                 id: parseInt(orderData.id, 10),
                 OSSM_ID: orderData.OSSM_ID,
@@ -180,7 +211,7 @@ function executePythonScript(scriptName, args = []) {
                 impactLevel: orderData.impact_level,
                 observation: orderData.observation,
                 requester_email: orderData.requester_email,
-                requesterName: orderData.requesterName,
+                requesterName: requesterInfo ? requesterInfo.name : orderData.requester_email,
                 status: orderData.status,
                 createdAt: orderData.created_at,
                 updatedAt: orderData.updated_at,
@@ -209,11 +240,10 @@ function executePythonScript(scriptName, args = []) {
                 safetyValidation: orderData.cipa_action_approver_email ? {
                     approved: !!orderData.cipa_action_approved,
                     comments: orderData.cipa_action_approved ? orderData.cipa_action_approved_reason : orderData.cipa_action_rejection_reason,
-                    userName: orderData.cipaApproverName || orderData.cipa_action_approver_email,
+                    userName: safetyApproverInfo ? safetyApproverInfo.name : orderData.cipa_action_approver_email,
                     rejectionReason: orderData.cipa_action_rejection_reason,
                     reasonapp: orderData.cipa_action_approved_reason,
                     reasondeny: orderData.cipa_action_rejection_reason,
-                    userName: orderData.cipaApproverName || orderData.cipa_action_approver_email,
                     date: orderData.cipa_action_approval_date,
                     petPtValidated: !!(orderData.cipa_requires_pet_pt_on_temp && orderData.cipa_pet_pt_id_on_temp),
                 } : null,
@@ -246,7 +276,6 @@ function executePythonScript(scriptName, args = []) {
                     evaluation_date: orderData.lab_reevaluation_date,
                     releasedForUse: !!orderData.lab_reeval_liberado_uso,
                     userName: orderData.labReevaluatorName || orderData.lab_reevaluator_email,
-             
                 } : null,
                 history: [],
             };
@@ -388,7 +417,7 @@ app.post('/api/service-orders', async (req, res) => {
     }
 });
 // Não esquecer de colocar ,isAutenthicated
-app.get('/api/service-orders', isAuthenticated,async (req, res) => {
+app.get('/api/service-orders', isAuthenticated ,async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
@@ -467,7 +496,7 @@ app.put('/api/service-orders/:orderId/pcm-analysis-data', async (req, res) => {
             orderId, pcmComments || null, requiresEvaluation ?? false,
             scheduledStartDate || null, scheduledEndDate || null, totalDowntime || null,
             analystEmail,
-            requires_cipa ?? true, // <<< ADICIONAR VALOR AQUI
+            requires_cipa ?? true,
         ]);
         if (priority || maintenanceType || component) {
             const updateOrderSql = `
@@ -511,7 +540,7 @@ app.put('/api/service-orders/:orderId/pcm-analysis-data', async (req, res) => {
 });
 
 
-
+//isAuthenticated,
 app.get('/api/me', isAuthenticated, (req, res) => {
   res.status(200).json({
     success: true,
