@@ -11,7 +11,8 @@ import { fileURLToPath } from 'url';
 const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
-  'https://api-solicitacao-servico.onrender.com'
+  'https://mercotech.com.br',
+  'https://www.mercotech.com.br'
 ];
 const corsOptions = {
   origin: function (origin, callback) {
