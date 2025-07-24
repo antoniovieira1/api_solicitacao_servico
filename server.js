@@ -11,8 +11,8 @@ import { fileURLToPath } from 'url';
 const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
-  'https://mercotech.com.br',
-  'https://www.mercotech.com.br'
+  'https://www.mercotech.com.br', 
+  'https://mercotech.com.br'
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -113,7 +113,7 @@ async function getAllUsers() {
 
 function executePythonScript(scriptName, args = []) {
   const scriptPath = path.join(__dirname, 'scripts', scriptName);
-  const pythonProcess = spawn('python3', [scriptPath, ...args]);
+  const pythonProcess = spawn('python3', [scriptPath, ...args]); //MODIFICAR PARA PYTHON3
   pythonProcess.stdout.on('data', (data) => {
     console.log(`[Python: ${scriptName}] stdout: ${data}`);
   });
@@ -123,15 +123,28 @@ function executePythonScript(scriptName, args = []) {
   pythonProcess.on('close', (code) => {
     console.log(`[Python: ${scriptName}] exited with code ${code}`);
   });
-}// Substitua a sua função fetchOrderDetails inteira por esta versão
-
+}
 async function fetchOrderDetails(orderId) {
     let connection;
     try {
         connection = await pool.getConnection();
         const sql = `
       SELECT
-        so.*,
+        so.id,
+        so.OSSM_ID,
+        so.sector,
+        so.equipment,
+        so.location,
+        so.service_description,
+        so.component,
+        so.priority,
+        so.maintenance_type,
+        so.impact_level,
+        so.observation,
+        so.requester_email,
+        so.status,
+        so.created_at,
+        so.updated_at,
         pa.pcm_comments, pa.requires_lab_evaluation, pa.scheduled_start_date,
         pa.scheduled_end_date, pa.total_downtime,
         pa.analyst_email AS pcm_analyst_email, 
@@ -150,7 +163,6 @@ async function fetchOrderDetails(orderId) {
         ca.cipa_analysis_date AS cipa_analysis_fill_date_on_temp,
         ca.cipa_approved AS cipa_action_approved,
         ca.cipa_approver_email AS cipa_action_approver_email,
-        -- Removida a busca pelo nome do cipa_approver aqui, faremos no código
         ca.cipa_approval_date AS cipa_action_approval_date,
         ca.cipa_approved_reason AS cipa_action_approved_reason,
         ca.cipa_rejection_reason AS cipa_action_rejection_reason,
@@ -165,6 +177,8 @@ async function fetchOrderDetails(orderId) {
         pe.execution_description AS pcm_execution_description,
         pe.execution_responsible_name,
         pe.executed_by_email AS pcm_executed_by_email,
+        pe.execution_start_date as pcm_execution_start_date,
+        pe.execution_end_date as pcm_execution_end_date,
         pcm_executor_user.Nome as pcmExecutorName,
         pe.execution_date AS pcm_execution_date,
         pe.houve_solicitacao_compra AS pcm_houve_compra,
@@ -175,121 +189,131 @@ async function fetchOrderDetails(orderId) {
         lr.liberado_uso AS lab_reeval_liberado_uso,
         lab_reevaluator_user.Nome as labReevaluatorName,
         lr.evaluation_date AS lab_reevaluation_date
-      FROM service_orders so
-      LEFT JOIN pcm_analysis pa ON so.id = pa.service_order_id
-      LEFT JOIN imports pcm_approver_user ON pa.pcm_approver_email = pcm_approver_user.Email
-      LEFT JOIN cipa_analysis_temp ca ON so.id = ca.service_order_id
-      LEFT JOIN lab_analysis la ON so.id = la.service_order_id
-      LEFT JOIN imports lab_evaluator_user ON la.lab_approval_email = lab_evaluator_user.Email
-      LEFT JOIN pcm_execution pe ON so.id = pe.service_order_id
-      LEFT JOIN imports pcm_executor_user ON pe.executed_by_email = pcm_executor_user.Email
-      LEFT JOIN lab_reevaluation lr ON so.id = lr.service_order_id
-      LEFT JOIN imports lab_reevaluator_user ON lr.evaluator_email = lab_reevaluator_user.Email
-      WHERE so.id = ?
+        FROM service_orders so
+        LEFT JOIN pcm_analysis pa ON so.id = pa.service_order_id
+        LEFT JOIN imports pcm_approver_user ON pa.pcm_approver_email = pcm_approver_user.Email
+        LEFT JOIN cipa_analysis_temp ca ON so.id = ca.service_order_id
+        LEFT JOIN lab_analysis la ON so.id = la.service_order_id
+        LEFT JOIN imports lab_evaluator_user ON la.lab_approval_email = lab_evaluator_user.Email
+        LEFT JOIN pcm_execution pe ON so.id = pe.service_order_id
+        LEFT JOIN imports pcm_executor_user ON pe.executed_by_email = pcm_executor_user.Email
+        LEFT JOIN lab_reevaluation lr ON so.id = lr.service_order_id
+        LEFT JOIN imports lab_reevaluator_user ON lr.evaluator_email = lab_reevaluator_user.Email
+        WHERE so.id = ?
     `;
         const [rows] = await connection.execute(sql, [orderId]);
         
         if (rows.length > 0) {
             const orderData = rows[0];
-
-            // Busca a lista de usuários do JSON
             const allUsers = await getAllUsers();
             
-            // Encontra o solicitante e o validador de segurança na lista
             const requesterInfo = allUsers.find(u => u.email === orderData.requester_email);
-            const safetyApproverInfo = allUsers.find(u => u.email === orderData.cipa_action_approver_email); // ✅ LINHA ADICIONADA
+            const pcmAnalystInfo = allUsers.find(u => u.email === orderData.pcm_analyst_email);
+            const pcmApproverInfo = allUsers.find(u => u.email === orderData.pcm_approver_email);
+            const cipaAnalystInfo = allUsers.find(u => u.email === orderData.cipa_analyst_email_on_temp);
+            const safetyApproverInfo = allUsers.find(u => u.email === orderData.cipa_action_approver_email);
+            const labEvaluatorInfo = allUsers.find(u => u.email === orderData.lab_evaluator_email);
+            const pcmExecutorInfo = allUsers.find(u => u.email === orderData.pcm_executed_by_email);
+            const labReevaluatorInfo = allUsers.find(u => u.email === orderData.lab_reevaluator_email);
 
-            const orderToReturn = {
-                id: parseInt(orderData.id, 10),
-                OSSM_ID: orderData.OSSM_ID,
-                sector: orderData.sector,
-                equipment: orderData.equipment,
-                location: orderData.location,
-                service: orderData.service_description,
-                component: orderData.component,
-                priority: orderData.priority,
-                maintenanceType: orderData.maintenance_type,
-                impactLevel: orderData.impact_level,
-                observation: orderData.observation,
-                requester_email: orderData.requester_email,
-                requesterName: requesterInfo ? requesterInfo.name : orderData.requester_email,
-                status: orderData.status,
-                createdAt: orderData.created_at,
-                updatedAt: orderData.updated_at,
-                pcmComments: orderData.pcm_comments,
-                requiresEvaluation: !!orderData.requires_lab_evaluation,
-                requires_cipa: orderData.requires_cipa === null || orderData.requires_cipa === undefined ? true : !!orderData.requires_cipa,
-                scheduledStartDate: orderData.scheduled_start_date,
-                scheduledEndDate: orderData.scheduled_end_date,
-                totalDowntime: orderData.total_downtime,
-                analystEmail: orderData.pcm_analyst_email,
-                analysisDate: orderData.pcm_analysis_fill_date,
-                pcmApproval: (orderData.pcm_approver_email || orderData.pcm_approval_status !== null) ? {
-                    approved: !!orderData.pcm_approval_status,
-                    justification: orderData.pcm_approval_justification,
-                    userName: orderData.pcmApproverName || orderData.pcm_approver_email,
-                    date: orderData.pcm_approval_date,
-                } : null,
-                cipaAnalysisData: orderData.cipa_analysis_id_on_temp ? {
-                    id: orderData.cipa_analysis_id_on_temp,
-                    requires_pet_pt: !!orderData.cipa_requires_pet_pt_on_temp,
-                    pet_pt_id: orderData.cipa_pet_pt_id_on_temp,
-                    comments: orderData.cipa_analysis_comments_on_temp,
-                    analyst_email: orderData.cipa_analyst_email_on_temp,
-                    analysis_date: orderData.cipa_analysis_fill_date_on_temp,
-                } : null,
-                safetyValidation: orderData.cipa_action_approver_email ? {
-                    approved: !!orderData.cipa_action_approved,
-                    comments: orderData.cipa_action_approved ? orderData.cipa_action_approved_reason : orderData.cipa_action_rejection_reason,
-                    userName: safetyApproverInfo ? safetyApproverInfo.name : orderData.cipa_action_approver_email,
-                    rejectionReason: orderData.cipa_action_rejection_reason,
-                    reasonapp: orderData.cipa_action_approved_reason,
-                    reasondeny: orderData.cipa_action_rejection_reason,
-                    date: orderData.cipa_action_approval_date,
-                    petPtValidated: !!(orderData.cipa_requires_pet_pt_on_temp && orderData.cipa_pet_pt_id_on_temp),
-                } : null,
-                labAnalysisData: orderData.lab_analysis_id ? {
-                    id: orderData.lab_analysis_id,
-                    service_order_id: parseInt(orderData.id, 10),
-                    liberado_uso: !!orderData.lab_liberado_uso,
-                    requalificacao: !!orderData.lab_requalificacao,
-                    comments: orderData.lab_analysis_comments,
-                    lab_approval_email: orderData.lab_evaluator_email,
-                    userName: orderData.labEvaluatorName || orderData.lab_evaluator_email,
-                    analysis_date: orderData.lab_evaluation_date,
-                } : null,
-                pcmExecutionData: orderData.pcm_execution_id ? {
-                    id: orderData.pcm_execution_id,
-                    service_order_id: parseInt(orderData.id, 10),
-                    execution_description: orderData.pcm_execution_description,
-                    execution_responsible_name: orderData.execution_responsible_name,
-                    executed_by_email: orderData.pcm_executed_by_email,
-                    execution_date: orderData.pcm_execution_date,
-                    houve_solicitacao_compra: !!orderData.pcm_houve_compra,
-                    numero_solicitacao_compra: orderData.pcm_numero_compra,
-                    userName: orderData.pcmExecutorName || orderData.pcm_executed_by_email,
-                } : null,
-                labReevaluationData: orderData.lab_reevaluation_id ? {
-                    id: orderData.lab_reevaluation_id,
-                    service_order_id: parseInt(orderData.id, 10),
-                    comments: orderData.lab_reevaluation_comments,
-                    evaluator_email: orderData.lab_reevaluator_email,
-                    evaluation_date: orderData.lab_reevaluation_date,
-                    releasedForUse: !!orderData.lab_reeval_liberado_uso,
-                    userName: orderData.labReevaluatorName || orderData.lab_reevaluator_email,
-                } : null,
-                history: [],
-            };
-            return { success: true, order: orderToReturn };
-        } else {
-            return { success: false, message: 'Ordem de serviço não encontrada.' };
-        }
-    } catch (error) {
-        console.error(`Erro ao buscar detalhes da OS ${orderId}:`, error);
-        return { success: false, message: 'Erro interno ao buscar detalhes da OS.' };
-    } finally {
-        if (connection) connection.release();
+                 const orderToReturn = {
+             id: parseInt(orderData.id, 10),
+             OSSM_ID: orderData.OSSM_ID,
+             sector: orderData.sector,
+             equipment: orderData.equipment,
+             location: orderData.location,
+             service: orderData.service_description,
+             component: orderData.component,
+             priority: orderData.priority,
+             maintenanceType: orderData.maintenance_type,
+             impactLevel: orderData.impact_level,
+             observation: orderData.observation,
+             requester_email: orderData.requester_email,
+             requesterName: requesterInfo ? requesterInfo.name : orderData.requester_email,
+             status: orderData.status,
+             createdAt: orderData.created_at,
+             updatedAt: orderData.updated_at,
+             pcmComments: orderData.pcm_comments,
+             requiresEvaluation: !!orderData.requires_lab_evaluation,
+             requires_cipa: orderData.requires_cipa === null || orderData.requires_cipa === undefined ? true : !!orderData.requires_cipa,
+             scheduledStartDate: orderData.scheduled_start_date,
+             scheduledEndDate: orderData.scheduled_end_date,
+             totalDowntime: orderData.total_downtime,
+             analystEmail: orderData.pcm_analyst_email,
+               
+                analystName: pcmAnalystInfo ? pcmAnalystInfo.name : orderData.pcm_analyst_email,
+             analysisDate: orderData.pcm_analysis_fill_date,
+             pcmApproval: (orderData.pcm_approver_email || orderData.pcm_approval_status !== null) ? {
+           approved: !!orderData.pcm_approval_status,
+           justification: orderData.pcm_approval_justification,
+               
+           userName: pcmApproverInfo ? pcmApproverInfo.name : (orderData.pcmApproverName || orderData.pcm_approver_email),
+           date: orderData.pcm_approval_date,
+         } : null,
+         cipaAnalysisData: orderData.cipa_analysis_id_on_temp ? {
+           id: orderData.cipa_analysis_id_on_temp,
+           requires_pet_pt: !!orderData.cipa_requires_pet_pt_on_temp,
+           pet_pt_id: orderData.cipa_pet_pt_id_on_temp,
+           comments: orderData.cipa_analysis_comments_on_temp,
+           analyst_email: orderData.cipa_analyst_email_on_temp,
+                       
+                          userName: cipaAnalystInfo ? cipaAnalystInfo.name : orderData.cipa_analyst_email_on_temp,
+            analysis_date: orderData.cipa_analysis_fill_date_on_temp,
+          } : null,
+          safetyValidation: orderData.cipa_action_approver_email ? {
+            approved: !!orderData.cipa_action_approved,
+            comments: orderData.cipa_action_approved ? orderData.cipa_action_approved_reason : orderData.cipa_action_rejection_reason,
+            userName: safetyApproverInfo ? safetyApproverInfo.name : orderData.cipa_action_approver_email,
+            rejectionReason: orderData.cipa_action_rejection_reason,
+            reasonapp: orderData.cipa_action_approved_reason,
+            reasondeny: orderData.cipa_action_rejection_reason,
+            date: orderData.cipa_action_approval_date,
+            petPtValidated: !!(orderData.cipa_requires_pet_pt_on_temp && orderData.cipa_pet_pt_id_on_temp),
+          } : null,
+          labAnalysisData: orderData.lab_analysis_id ? {
+            id: orderData.lab_analysis_id,
+            service_order_id: parseInt(orderData.id, 10),
+            liberado_uso: !!orderData.lab_liberado_uso,
+            requalificacao: !!orderData.lab_requalificacao,
+            comments: orderData.lab_analysis_comments,
+            lab_approval_email: orderData.lab_evaluator_email,
+            userName: labEvaluatorInfo ? labEvaluatorInfo.name : (orderData.labEvaluatorName || orderData.lab_evaluator_email),
+            analysis_date: orderData.lab_evaluation_date,
+          } : null,
+          pcmExecutionData: orderData.pcm_execution_id ? {
+            id: orderData.pcm_execution_id,
+            service_order_id: parseInt(orderData.id, 10),
+            execution_description: orderData.pcm_execution_description,
+            execution_responsible_name: orderData.execution_responsible_name,
+            executed_by_email: orderData.pcm_executed_by_email,
+            execution_date: orderData.pcm_execution_date,
+            houve_solicitacao_compra: !!orderData.pcm_houve_compra,
+            numero_solicitacao_compra: orderData.pcm_numero_compra,
+            userName: pcmExecutorInfo ? pcmExecutorInfo.name : (orderData.pcmExecutorName || orderData.pcm_executed_by_email),
+            execution_start_date: orderData.pcm_execution_start_date,
+            execution_end_date: orderData.pcm_execution_end_date,
+          } : null,
+          labReevaluationData: orderData.lab_reevaluation_id ? {
+            id: orderData.lab_reevaluation_id,
+            service_order_id: parseInt(orderData.id, 10),
+            comments: orderData.lab_reevaluation_comments,
+            evaluator_email: orderData.lab_reevaluator_email,
+            evaluation_date: orderData.lab_reevaluation_date,
+            releasedForUse: !!orderData.lab_reeval_liberado_uso,
+            userName: labReevaluatorInfo ? labReevaluatorInfo.name : (orderData.labReevaluatorName || orderData.lab_reevaluator_email),
+        } : null,
+        history: [],
+      };
+      return { success: true, order: orderToReturn };
+    } else {
+      return { success: false, message: 'Ordem de serviço não encontrada.' };
     }
+  } catch (error) {
+    console.error(`Erro ao buscar detalhes da OS ${orderId}:`, error);
+    return { success: false, message: 'Erro interno ao buscar detalhes da OS.' };
+  } finally {
+    if (connection) connection.release();
+  }
 }
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
@@ -418,26 +442,38 @@ app.post('/api/service-orders', async (req, res) => {
     }
 });
 // Não esquecer de colocar ,isAutenthicated
-app.get('/api/service-orders', isAuthenticated ,async (req, res) => {
+app.get('/api/service-orders', isAuthenticated, async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
+        // A consulta agora junta a tabela pcm_analysis para obter os campos necessários
         const sql = `
-      SELECT so.*, i.Nome as requesterName
+      SELECT 
+        so.*, 
+        i.Nome as requesterName,
+        pa.requires_lab_evaluation,
+        pa.requires_cipa
       FROM service_orders so
       LEFT JOIN imports i ON so.requester_email = i.Email
+      LEFT JOIN pcm_analysis pa ON so.id = pa.service_order_id
       ORDER BY so.created_at DESC
     `;
         const [rows] = await connection.execute(sql);
         connection.release();
+        
         res.json({
             success: true,
+            // O mapeamento agora inclui as propriedades booleanas que o frontend precisa
             orders: rows.map(order => ({
                 ...order,
                 id: parseInt(order.id, 10),
                 service: order.service_description,
                 maintenanceType: order.maintenance_type,
                 createdAt: order.created_at,
+                // Converte os valores do banco (0, 1, null) para booleanos (false, true)
+                requiresEvaluation: !!order.requires_lab_evaluation,
+                // Lógica consistente para `requires_cipa` (considera null como true por padrão)
+                requires_cipa: order.requires_cipa === null || order.requires_cipa === undefined ? true : !!order.requires_cipa,
             })),
         });
     } catch (error) {
@@ -846,32 +882,44 @@ app.post('/api/service-orders/:orderId/pcm-execution', async (req, res) => {
     }
 });
 app.post('/api/service-orders/:orderId/lab-reevaluation', async (req, res) => {
-    const { orderId } = req.params;
-    const { comments, releasedForUse, userEmail } = req.body;
-    if (!comments || typeof releasedForUse === 'undefined' || !userEmail) {
-        return res.status(400).json({ success: false, message: 'Dados insuficientes para salvar a reavaliação.' });
-    }
-    let connection;
-    try {
-        connection = await pool.getConnection();
-        const sql = `
-        INSERT INTO lab_reevaluation (service_order_id, comments, liberado_uso, evaluator_email, evaluation_date)
-        VALUES (?, ?, ?, ?, NOW())
-        ON DUPLICATE KEY UPDATE
-          comments = VALUES(comments),
-          liberado_uso = VALUES(liberado_uso),
-          evaluator_email = VALUES(evaluator_email),
-          evaluation_date = NOW()
-      `;
-        await connection.execute(sql, [orderId, comments, releasedForUse, userEmail]);
-        connection.release();
-        const updatedOrderData = await fetchOrderDetails(orderId);
-        res.status(200).json(updatedOrderData);
-    } catch (error) {
-        if (connection) connection.release();
-        console.error(`Erro ao salvar reavaliação lab para OS ID ${orderId}:`, error);
-        res.status(500).json({ success: false, message: 'Erro interno do servidor.' });
-    }
+  const { orderId } = req.params;
+  const { comments, releasedForUse, userEmail } = req.body;
+  if (!comments || typeof releasedForUse === 'undefined' || !userEmail) {
+    return res.status(400).json({ success: false, message: 'Dados insuficientes para salvar a reavaliação.' });
+  }
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    const sql = `
+    INSERT INTO lab_reevaluation (service_order_id, comments, liberado_uso, evaluator_email, evaluation_date)
+    VALUES (?, ?, ?, ?, NOW())
+    ON DUPLICATE KEY UPDATE
+     comments = VALUES(comments),
+     liberado_uso = VALUES(liberado_uso),
+     evaluator_email = VALUES(evaluator_email),
+     evaluation_date = NOW()
+   `;
+    await connection.execute(sql, [orderId, comments, releasedForUse, userEmail]);
+        try {
+            const [orderData] = await connection.execute('SELECT OSSM_ID, requester_email FROM service_orders WHERE id = ?', [orderId]);
+            const ossmId = orderData[0]?.OSSM_ID;
+            const requesterEmail = orderData[0]?.requester_email;
+            if (ossmId && requesterEmail) {
+                executePythonScript('labreevaltorequester.py', [ossmId, requesterEmail]);
+            }
+        } catch (emailError) {
+            console.error("Erro ao tentar enviar e-mail de finalização (Lab->Requester):", emailError);
+        }
+
+    const updatedOrderData = await fetchOrderDetails(orderId);
+    res.status(200).json(updatedOrderData);
+
+  } catch (error) {
+    console.error(`Erro ao salvar reavaliação lab para OS ID ${orderId}:`, error);
+    res.status(500).json({ success: false, message: 'Erro interno do servidor.' });
+  } finally {
+    if (connection) connection.release();
+  }
 });
 app.get('/api/event-days-in-month', async (req, res) => {
     const { year, month } = req.query;
@@ -1014,6 +1062,7 @@ app.delete('/api/equipments/:id', async (req, res) => {
         res.status(500).json({ success: false, message: 'Erro interno do servidor.' });
     }
 });
+
 app.post('/api/service-orders/:orderId/status', async (req, res) => {
     const { orderId } = req.params;
     const {
@@ -1025,137 +1074,223 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
         pcmExecutionDetails,
         labReevaluationDetails,
     } = req.body;
+
     if (isNaN(parseInt(orderId))) {
         return res.status(400).json({ success: false, message: 'ID da OS inválido.' });
     }
     if (!actionType || !userAction || !userAction.userId || !userAction.role) {
         return res.status(400).json({ success: false, message: 'Dados insuficientes para processar a ação de workflow.' });
     }
+
     let connection;
     try {
         connection = await pool.getConnection();
         await connection.beginTransaction();
         let finalOsStatus = '';
+        let ossmIdForEmail = null;
+        const [orderInfoRows] = await connection.execute('SELECT OSSM_ID, requester_email FROM service_orders WHERE id = ?', [orderId]);
+        if (orderInfoRows.length === 0) throw new Error('Ordem de serviço não encontrada.');
+        ossmIdForEmail = orderInfoRows[0].OSSM_ID;
+        const requesterEmailForCompletion = orderInfoRows[0].requester_email;
+
+
         switch (actionType) {
             case 'approve_pcm':
             case 'reject_pcm':
                 if (!pcmApprovalData) throw new Error('Dados da aprovação PCM ausentes.');
-                const pcmAnalysisSql = `
-          INSERT INTO pcm_analysis (
-            service_order_id, pcm_comments, requires_lab_evaluation, scheduled_start_date, scheduled_end_date, total_downtime, analyst_email, analysis_date,
-            pcm_approval_status, pcm_approval_justification, pcm_approver_email, pcm_approval_date
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            pcm_comments = VALUES(pcm_comments), requires_lab_evaluation = VALUES(requires_lab_evaluation), scheduled_start_date = VALUES(scheduled_start_date),
-            scheduled_end_date = VALUES(scheduled_end_date), total_downtime = VALUES(total_downtime), analyst_email = VALUES(analyst_email),
-            analysis_date = VALUES(analysis_date), pcm_approval_status = VALUES(pcm_approval_status), pcm_approval_justification = VALUES(pcm_approval_justification),
-            pcm_approver_email = VALUES(pcm_approver_email), pcm_approval_date = VALUES(pcm_approval_date)
-        `;
+                
+                const pcmAnalysisSql = `INSERT INTO pcm_analysis (
+                    service_order_id, pcm_comments, requires_lab_evaluation, requires_cipa, scheduled_start_date, scheduled_end_date, total_downtime, analyst_email, analysis_date,
+                    pcm_approval_status, pcm_approval_justification, pcm_approver_email, pcm_approval_date
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  ON DUPLICATE KEY UPDATE
+                    pcm_comments = VALUES(pcm_comments), requires_lab_evaluation = VALUES(requires_lab_evaluation), requires_cipa = VALUES(requires_cipa), scheduled_start_date = VALUES(scheduled_start_date),
+                    scheduled_end_date = VALUES(scheduled_end_date), total_downtime = VALUES(total_downtime), analyst_email = VALUES(analyst_email),
+                    analysis_date = VALUES(analysis_date), pcm_approval_status = VALUES(pcm_approval_status), pcm_approval_justification = VALUES(pcm_approval_justification),
+                    pcm_approver_email = VALUES(pcm_approver_email), pcm_approval_date = VALUES(pcm_approval_date)`;
+
                 await connection.execute(pcmAnalysisSql, [
-                    orderId, pcmApprovalData.pcmComments, pcmApprovalData.requiresEvaluation, pcmApprovalData.scheduledStartDate,
+                    orderId, pcmApprovalData.pcmComments, pcmApprovalData.requiresEvaluation, pcmApprovalData.requires_cipa, pcmApprovalData.scheduledStartDate,
                     pcmApprovalData.scheduledEndDate, pcmApprovalData.totalDowntime, pcmApprovalData.analystEmail, pcmApprovalData.analysisDate || new Date(),
                     pcmApprovalData.approved, pcmApprovalData.justification, userAction.userId, userAction.date,
                 ]);
+
                 if (pcmApprovalData.approved) {
-                    const [existingOsRows] = await connection.execute('SELECT OSSM_ID FROM service_orders WHERE id = ?', [orderId]);
-                    if (existingOsRows.length > 0 && existingOsRows[0].OSSM_ID === null) {
+                    if (ossmIdForEmail === null) {
                         const [maxIdRows] = await connection.execute('SELECT MAX(OSSM_ID) as max_id FROM service_orders');
-                        const newOssmId = (maxIdRows[0].max_id || 0) + 1;
-                        await connection.execute('UPDATE service_orders SET OSSM_ID = ? WHERE id = ?', [newOssmId, orderId]);
-                        console.log(`Solicitação #${orderId} aprovada e transformada na OSSM #${newOssmId}`);
+                        ossmIdForEmail = (maxIdRows[0].max_id || 0) + 1;
+                        await connection.execute('UPDATE service_orders SET OSSM_ID = ? WHERE id = ?', [ossmIdForEmail, orderId]);
                     }
-                    finalOsStatus = 'em_analise';
+                    
+                    const needsCipa = pcmApprovalData.requires_cipa;
+                    const needsLab = pcmApprovalData.requiresEvaluation;
+
+                    if (needsCipa && ossmIdForEmail) {
+                        const [cipaRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role IN (?, ?)', ['cipa', 'seguranca']);
+                        if (cipaRoles.length > 0) {
+                            const cipaEmails = cipaRoles.map(role => role.email).join(',');
+                            executePythonScript('sendmailcipa.py', [ossmIdForEmail, cipaEmails]);
+                        }
+                    } else if (needsLab && ossmIdForEmail) {
+                        const [labRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['laboratorio']);
+                        if (labRoles.length > 0) {
+                            const labEmails = labRoles.map(r => r.email).join(',');
+                            executePythonScript('sendmaillab.py', [ossmIdForEmail, labEmails]);
+                        }
+                    }
+
+                    finalOsStatus = (!needsLab && !needsCipa) ? 'pendente_execucao_servico' : 'em_analise';
                 } else {
                     finalOsStatus = 'reprovada';
                 }
                 break;
+
             case 'approve_cipa':
             case 'reject_cipa':
                 if (!safetyValidationData) throw new Error('Dados da validação CIPA ausentes.');
-                const cipaActionSql = `
-          UPDATE cipa_analysis_temp SET
-            cipa_approved = ?, cipa_approver_email = ?, cipa_approval_date = ?,
-            cipa_approved_reason = ?, cipa_rejection_reason = ?
-          WHERE service_order_id = ?
-        `;
+                const cipaActionSql = `INSERT INTO cipa_analysis_temp (
+                    service_order_id, cipa_approved, cipa_approver_email, cipa_approval_date,
+                    cipa_approved_reason, cipa_rejection_reason
+                  ) VALUES (?, ?, ?, ?, ?, ?)
+                  ON DUPLICATE KEY UPDATE
+                    cipa_approved = VALUES(cipa_approved), cipa_approver_email = VALUES(cipa_approver_email),
+                    cipa_approval_date = VALUES(cipa_approval_date), cipa_approved_reason = VALUES(cipa_approved_reason),
+                    cipa_rejection_reason = VALUES(cipa_rejection_reason)`;
                 await connection.execute(cipaActionSql, [
-                    safetyValidationData.approved, userAction.userId, userAction.date,
+                    orderId, safetyValidationData.approved, userAction.userId, userAction.date,
                     safetyValidationData.approved ? (safetyValidationData.reasonapp || userAction.comments) : null,
                     !safetyValidationData.approved ? (safetyValidationData.rejectionReason || userAction.comments) : null,
-                    orderId
                 ]);
+
                 if (safetyValidationData.approved) {
                     const [osRows] = await connection.execute('SELECT pa.requires_lab_evaluation FROM pcm_analysis pa WHERE pa.service_order_id = ?', [orderId]);
                     if (osRows.length === 0) throw new Error('Análise PCM não encontrada para determinar próximo passo.');
+                    
                     const pcmRequiredLab = !!osRows[0].requires_lab_evaluation;
                     finalOsStatus = pcmRequiredLab ? 'em_analise' : 'pendente_execucao_servico';
+                    if (ossmIdForEmail) {
+                        if (pcmRequiredLab) {
+                            const [labRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['laboratorio']);
+                            if (labRoles.length > 0) {
+                                const labEmails = labRoles.map(r => r.email).join(',');
+                                executePythonScript('notify_lab_after_cipa.py', [ossmIdForEmail, labEmails]);
+                            }
+                        } else {
+                            const [pcmRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['pcm']);
+                            if (pcmRoles.length > 0) {
+                                const pcmEmails = pcmRoles.map(r => r.email).join(',');
+                                executePythonScript('notify_pcm_after_cipa.py', [ossmIdForEmail, pcmEmails]);
+                            }
+                        }
+                    }
+
                 } else {
                     finalOsStatus = 'reprovada';
                 }
                 break;
+
             case 'submit_lab_first_eval':
                 if (!laboratoryEvaluationData) throw new Error('Dados da 1ª avaliação laboratorial ausentes.');
-                const labFirstEvalSql = `
-          INSERT INTO lab_analysis (service_order_id, requalificacao, comments, lab_approval_email, analysis_date)
-          VALUES (?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            requalificacao = VALUES(requalificacao), comments = VALUES(comments),
-            lab_approval_email = VALUES(lab_approval_email), analysis_date = VALUES(analysis_date)
-        `;
+                const labFirstEvalSql = `INSERT INTO lab_analysis (service_order_id, requalificacao, comments, lab_approval_email, analysis_date)
+                  VALUES (?, ?, ?, ?, ?)
+                  ON DUPLICATE KEY UPDATE
+                    requalificacao = VALUES(requalificacao), comments = VALUES(comments),
+                    lab_approval_email = VALUES(lab_approval_email), analysis_date = VALUES(analysis_date)`;
                 await connection.execute(labFirstEvalSql, [
                     orderId, laboratoryEvaluationData.requiresRequalification,
                     laboratoryEvaluationData.comments, userAction.userId, userAction.date,
                 ]);
+
+                if (ossmIdForEmail) {
+                    const [pcmRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['pcm']);
+                    if (pcmRoles.length > 0) {
+                        const pcmEmails = pcmRoles.map(r => r.email).join(',');
+                        executePythonScript('labtopcmfirst.py', [ossmIdForEmail, pcmEmails]);
+                    }
+                }
                 finalOsStatus = 'pendente_execucao_servico';
                 break;
+
             case 'submit_pcm_execution':
                 if (!pcmExecutionDetails) throw new Error('Detalhes da execução PCM ausentes.');
                 await connection.execute(
-                    'INSERT INTO pcm_execution (service_order_id, execution_description, executed_by_email, execution_date, houve_solicitacao_compra, numero_solicitacao_compra, execution_responsible_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [
-            orderId,
-            pcmExecutionDetails.execution_description,
-            userAction.userId,
-            userAction.date,
-            pcmExecutionDetails.houve_solicitacao_compra,
-            pcmExecutionDetails.numero_solicitacao_compra,
-            pcmExecutionDetails.execution_responsible_name
-        ]
-    );
+                    `INSERT INTO pcm_execution (
+                        service_order_id, execution_description, executed_by_email, execution_date, 
+                        houve_solicitacao_compra, numero_solicitacao_compra, execution_responsible_name,
+                        execution_start_date, execution_end_date 
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE execution_description=VALUES(execution_description), executed_by_email=VALUES(executed_by_email), execution_date=VALUES(execution_date), houve_solicitacao_compra=VALUES(houve_solicitacao_compra), numero_solicitacao_compra=VALUES(numero_solicitacao_compra), execution_responsible_name=VALUES(execution_responsible_name), execution_start_date=VALUES(execution_start_date), execution_end_date=VALUES(execution_end_date)`, [
+                        orderId, pcmExecutionDetails.execution_description, userAction.userId, userAction.date,
+                        pcmExecutionDetails.houve_solicitacao_compra, pcmExecutionDetails.numero_solicitacao_compra,
+                        pcmExecutionDetails.execution_responsible_name, pcmExecutionDetails.execution_start_date || null,
+                        pcmExecutionDetails.execution_end_date || null
+                    ]
+                );
+
                 const [pcmAnalysisRows] = await connection.execute('SELECT requires_lab_evaluation FROM pcm_analysis WHERE service_order_id = ?', [orderId]);
                 if (pcmAnalysisRows.length === 0) throw new Error('Análise PCM não encontrada.');
+                
                 const pcmRequiredLab = !!pcmAnalysisRows[0].requires_lab_evaluation;
+                let needsReevaluation = false;
                 if (pcmRequiredLab) {
                     const [labAnalysisRows] = await connection.execute('SELECT requalificacao FROM lab_analysis WHERE service_order_id = ?', [orderId]);
-                    if (labAnalysisRows.length === 0) throw new Error('Análise do Laboratório não encontrada.');
-                    const labRequiredRequal = !!labAnalysisRows[0].requalificacao;
-                    finalOsStatus = labRequiredRequal ? 'pendente_reavaliacao_lab' : 'finalizada';
+                    if (labAnalysisRows.length > 0) {
+                        needsReevaluation = !!labAnalysisRows[0].requalificacao;
+                    }
+                }
+
+                if (needsReevaluation) {
+                    finalOsStatus = 'pendente_reavaliacao_lab';
+                    if (ossmIdForEmail) {
+                        const [labRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['laboratorio']);
+                        if (labRoles.length > 0) {
+                            const labEmails = labRoles.map(r => r.email).join(',');
+                            executePythonScript('notify_lab_for_reevaluation.py', [ossmIdForEmail, labEmails]);
+                        }
+                    }
+            
                 } else {
                     finalOsStatus = 'finalizada';
+                    
+                    if (ossmIdForEmail && requesterEmailForCompletion) {
+                        executePythonScript('notify_requester_on_completion.py', [ossmIdForEmail, requesterEmailForCompletion]);
+                    }
+            
                 }
                 break;
+
             case 'submit_lab_reevaluation':
                 if (!labReevaluationDetails) throw new Error('Detalhes da reavaliação ausentes.');
+                
                 await connection.execute(
-                    'INSERT INTO lab_reevaluation (service_order_id, comments, evaluator_email, evaluation_date, liberado_uso) VALUES (?, ?, ?, ?, ?)',
+                    'INSERT INTO lab_reevaluation (service_order_id, comments, evaluator_email, evaluation_date, liberado_uso) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE comments=VALUES(comments), evaluator_email=VALUES(evaluator_email), evaluation_date=VALUES(evaluation_date), liberado_uso=VALUES(liberado_uso)',
                     [orderId, labReevaluationDetails.comments, userAction.userId, userAction.date, labReevaluationDetails.releasedForUse]
                 );
                 finalOsStatus = 'finalizada';
+                
+                if (ossmIdForEmail && requesterEmailForCompletion) {
+                    executePythonScript('notify_requester_on_completion.py', [ossmIdForEmail, requesterEmailForCompletion]);
+                }
+        
                 break;
+
             default:
                 await connection.rollback();
                 return res.status(400).json({ success: false, message: `Tipo de ação de workflow desconhecido: ${actionType}` });
         }
+
         if (!finalOsStatus) {
             await connection.rollback();
             throw new Error("O status final da OS não foi determinado pela lógica da ação.");
         }
+
         await connection.execute(
             'UPDATE service_orders SET status = ?, updated_at = NOW() WHERE id = ?',
             [finalOsStatus, orderId]
         );
+
         await connection.commit();
         const updatedOrderData = await fetchOrderDetails(orderId);
+
         if (updatedOrderData.success) {
             res.json({
                 success: true,
@@ -1175,13 +1310,16 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
         if (connection) connection.release();
     }
 });
+
 app.use((req, res, next) => {
     res.status(404).json({ success: false, message: 'Rota não encontrada.' });
 });
+
 app.use((err, req, res, next) => {
     console.error("Erro não tratado:", err.stack || err.message || err);
     res.status(500).json({ success: false, message: 'Ocorreu um erro inesperado no servidor.' });
 });
+
 app.listen(port, () => {
     console.log(`Servidor backend rodando na porta ${port}`);
 }); 
