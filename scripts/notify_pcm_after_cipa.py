@@ -1,21 +1,20 @@
-# (Estrutura idêntica)
-# ... importações e configurações SMTP ...
-import sys, smtplib
+import sys
+import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 SMTP_SERVER = 'mail.mercotech.com.br'
 SMTP_PORT = 587
 SMTP_USER = 'status@mercotech.com.br'
-SMTP_PASSWORD =  'ukr>d@fZD*I#D$y5Ji*@'
+SMTP_PASSWORD = 'ukr>d@fZD*I#D$y5Ji*@'
 
-def send_notification(recipient_email, ossm_id):
-    subject = f"Sua Solicitação de Serviço (OS {ossm_id}) foi Finalizada"
-    message_body = f"Olá,<br><br>Temos boas notícias! A sua solicitação de serviço, OS {ossm_id}</b>, foi finalizada."
-    send_email(recipient_email, subject, message_body)
+
+def send_notification(recipient_emails, ossm_id):
+    subject = f"OS Pronta para Execução: #{ossm_id}"
+    message_body = f"Olá, Equipe do PCM,<br><br>A análise de segurança para a Ordem de Serviço (<b>OS: {ossm_id}</b>) foi concluída. A OS está agora pronta para ser executada."
+    send_email(recipient_emails, subject, message_body)
 
 def send_email(recipient, subject, message_body):
-    # (Copie a função send_email)
     try:
         with open('email_template.html', 'r', encoding='utf-8') as f:
             html_template = f.read()
@@ -35,9 +34,8 @@ def send_email(recipient, subject, message_body):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Uso: python pcmtorequester.py <ossm_id> <recipient_email>", file=sys.stderr)
+        print("Uso: python notify_pcm_after_cipa.py <ossm_id> <recipient_emails>", file=sys.stderr)
         sys.exit(1)
-    
     ossm_id = sys.argv[1]
-    email = sys.argv[2]
-    send_notification(email, ossm_id)
+    emails = sys.argv[2]
+    send_notification(emails, ossm_id)
