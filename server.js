@@ -1118,9 +1118,11 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
                 if (pcmApprovalData.approved) {
                     if (ossmIdForEmail === null) {
                         const [maxIdRows] = await connection.execute('SELECT MAX(OSSM_ID) as max_id FROM service_orders');
-                        ossmIdForEmail = (maxIdRows[0].max_id || 0) + 1;
+                        const currentMax = maxIdRows[0].max_id || 0;
+                        ossmIdForEmail = Math.max(currentMax, 972) + 1;
                         await connection.execute('UPDATE service_orders SET OSSM_ID = ? WHERE id = ?', [ossmIdForEmail, orderId]);
                     }
+                    
                     
                     const needsCipa = pcmApprovalData.requires_cipa;
                     const needsLab = pcmApprovalData.requiresEvaluation;
