@@ -12,7 +12,8 @@ import { fileURLToPath } from 'url';
 const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
-  'http://localhost:8080'
+  'https://www.mercotech.com.br',
+  'https://mercotech.com.br'
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -36,9 +37,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false,  //não esquecer de mudar para true no deploy     
+      secure: true,  //não esquecer de mudar para true no deploy     
       httpOnly: true,     
-      sameSite: 'lax',   //mudar para none no deploy
+      sameSite: 'none',   //mudar para none no deploy
       maxAge: 24 * 60 * 60 * 1000
     },
   })
@@ -442,7 +443,7 @@ app.post('/api/service-orders', async (req, res) => {
     }
 });
 // Não esquecer de colocar ,isAutenthicated
-app.get('/api/service-orders',  async (req, res) => {
+app.get('/api/service-orders', isAuthenticated, async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
