@@ -1,8 +1,10 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
-import session from 'express-session';
+import jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
 import mysql from 'mysql2/promise';
+import fs from 'fs/promises';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import { spawn } from 'child_process';
@@ -11,8 +13,7 @@ import { fileURLToPath } from 'url';
 const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
-  'https://www.mercotech.com.br', 
-  'https://mercotech.com.br'
+  'http://localhost:8080'
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -29,20 +30,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(cors(corsOptions));
 app.use(express.json());
+
+app.use(cookieParser());
+
+
 app.set('trust proxy', 1);
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET, 
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: true,  //não esquecer de mudar para true no deploy     
-      httpOnly: true,     
-      sameSite: 'none',   //mudar para none no deploy
-      maxAge: 24 * 60 * 60 * 1000
-    },
-  })
-);
+
+//app.use(
+//  session({
+//    secret: process.env.SESSION_SECRET, 
+//    resave: false,
+//    saveUninitialized: false,
+//    cookie: {
+//      secure: false,  //não esquecer de mudar para true no deploy     
+//      httpOnly: true,     
+//      sameSite: 'lax',   //mudar para none no deploy
+//      maxAge: 24 * 60 * 60 * 1000
+//    },
+//  })
+//);
+
+
 let pool;
 try {
   pool = mysql.createPool({
@@ -63,13 +71,28 @@ try {
   console.error('Erro fatal ao criar o pool de conexões com o DB:', error);
   process.exit(1);
 }
-const isAuthenticated = (req, res, next) => {
-  if (req.session.user) {
-    next();
-  } else {
-    res.status(401).json({ success: false, message: 'Acesso não autenticado. Por favor, faça o login.' });
-  }
+const authenticateToken = (req, res, next) => {
+    const token = req.cookies.auth_token; // Lê o cookie que o PHP criou
+
+    if (!token) {
+        return res.status(401).json({ success: false, message: 'Acesso negado. Token não encontrado.' });
+    }
+
+    // Use uma chave secreta forte e a guarde no seu arquivo .env
+    // DEVE SER A MESMA CHAVE USADA NO SEU CÓDIGO PHP
+    const secret_key = process.env.JWT_SECRET || 'SUA_CHAVE_SECRETA_MUITO_FORTE_E_UNICA';
+
+    jwt.verify(token, secret_key, (err, decoded) => {
+        if (err) {
+            return res.status(403).json({ success: false, message: 'Token inválido ou expirado.' });
+        }
+        // Anexa os dados do usuário do token à requisição
+        req.user = decoded.data;
+        next();
+    });
 };
+
+
 async function testDbConnection() {
   if (!pool) {
     console.error('Pool de conexões não inicializado. Não é possível testar a conexão.');
@@ -442,7 +465,7 @@ app.post('/api/service-orders', async (req, res) => {
     }
 });
 // Não esquecer de colocar ,isAutenthicated
-app.get('/api/service-orders', isAuthenticated, async (req, res) => {
+app.get('/api/service-orders',  async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
@@ -578,7 +601,7 @@ app.put('/api/service-orders/:orderId/pcm-analysis-data', async (req, res) => {
 
 
 //isAuthenticated,
-app.get('/api/me', isAuthenticated, (req, res) => {
+app.get('/api/me', (req, res) => {
   res.status(200).json({
     success: true,
     user: req.session.user
@@ -586,14 +609,20 @@ app.get('/api/me', isAuthenticated, (req, res) => {
 });
 
 app.post('/api/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ success: false, message: 'Não foi possível fazer logout.' });
-    }
-    res.clearCookie('connect.sid'); 
+    // Apenas limpa o cookie do token JWT
+    res.clearCookie('auth_token', {
+        path: '/',
+        domain: 'mercotech.com.br' // Use o domínio correto
+    });
     res.status(200).json({ success: true, message: 'Logout bem-sucedido.' });
-  });
 });
+app.get('/api/check-auth', authenticateToken, (req, res) => {
+    // Se a requisição chegou aqui, o middleware 'authenticateToken' já validou o usuário.
+    // Apenas retornamos os dados do usuário que o middleware anexou em 'req.user'.
+    res.status(200).json({ success: true, user: req.user });
+});
+
+
 app.post('/api/service-orders/:orderId/cipa-analysis', async (req, res) => {
     const { orderId } = req.params;
     const {
@@ -1118,11 +1147,9 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
                 if (pcmApprovalData.approved) {
                     if (ossmIdForEmail === null) {
                         const [maxIdRows] = await connection.execute('SELECT MAX(OSSM_ID) as max_id FROM service_orders');
-                        const currentMax = maxIdRows[0].max_id || 0;
-                        ossmIdForEmail = Math.max(currentMax, 972) + 1;
+                        ossmIdForEmail = (maxIdRows[0].max_id || 0) + 1;
                         await connection.execute('UPDATE service_orders SET OSSM_ID = ? WHERE id = ?', [ossmIdForEmail, orderId]);
                     }
-                    
                     
                     const needsCipa = pcmApprovalData.requires_cipa;
                     const needsLab = pcmApprovalData.requiresEvaluation;
@@ -1312,6 +1339,9 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
         if (connection) connection.release();
     }
 });
+
+
+
 
 app.use((req, res, next) => {
     res.status(404).json({ success: false, message: 'Rota não encontrada.' });
