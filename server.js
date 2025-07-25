@@ -13,7 +13,8 @@ import { fileURLToPath } from 'url';
 const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
-  'http://localhost:8080'
+  'https://www.mercotech.com.br',
+  'https://mercotech.com.br'
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -80,7 +81,7 @@ const authenticateToken = (req, res, next) => {
 
     // Use uma chave secreta forte e a guarde no seu arquivo .env
     // DEVE SER A MESMA CHAVE USADA NO SEU CÓDIGO PHP
-    const secret_key = process.env.JWT_SECRET || 'SUA_CHAVE_SECRETA_MUITO_FORTE_E_UNICA';
+    const secret_key = process.env.JWT_SECRET;
 
     jwt.verify(token, secret_key, (err, decoded) => {
         if (err) {
