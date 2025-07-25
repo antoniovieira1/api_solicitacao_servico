@@ -334,7 +334,7 @@ app.post('/api/login', async (req, res) => {
         if (!user) {
             return res.status(401).json({ success: false, message: 'Email não encontrado ou credenciais inválidas.' });
         }
-        if (user.is_auth !== 1) {
+        if (user.is_ssm !== 1) {
             return res.status(403).json({ success: false, message: 'Usuário não possui permissão para acessar o sistema.' });
         }
         const passwordMatches = await bcrypt.compare(password, user.password);
