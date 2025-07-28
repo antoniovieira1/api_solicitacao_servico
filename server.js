@@ -1,8 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
-import jwt from 'jsonwebtoken';
-import cookieParser from 'cookie-parser';
+import session from 'express-session';
 import mysql from 'mysql2/promise';
 import fs from 'fs/promises';
 import cors from 'cors';
@@ -31,27 +30,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(cors(corsOptions));
 app.use(express.json());
-
-app.use(cookieParser());
-
-
 app.set('trust proxy', 1);
-
-//app.use(
-//  session({
-//    secret: process.env.SESSION_SECRET, 
-//    resave: false,
-//    saveUninitialized: false,
-//    cookie: {
-//      secure: false,  //não esquecer de mudar para true no deploy     
-//      httpOnly: true,     
-//      sameSite: 'lax',   //mudar para none no deploy
-//      maxAge: 24 * 60 * 60 * 1000
-//    },
-//  })
-//);
-
-
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET, 
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: true,  //não esquecer de mudar para true no deploy     
+      httpOnly: true,     
+      sameSite: 'none',   //mudar para none no deploy
+      maxAge: 24 * 60 * 60 * 1000
+    },
+  })
+);
 let pool;
 try {
   pool = mysql.createPool({
@@ -72,28 +64,13 @@ try {
   console.error('Erro fatal ao criar o pool de conexões com o DB:', error);
   process.exit(1);
 }
-const authenticateToken = (req, res, next) => {
-    const token = req.cookies.auth_token; // Lê o cookie que o PHP criou
-
-    if (!token) {
-        return res.status(401).json({ success: false, message: 'Acesso negado. Token não encontrado.' });
-    }
-
-    // Use uma chave secreta forte e a guarde no seu arquivo .env
-    // DEVE SER A MESMA CHAVE USADA NO SEU CÓDIGO PHP
-    const secret_key = process.env.JWT_SECRET;
-
-    jwt.verify(token, secret_key, (err, decoded) => {
-        if (err) {
-            return res.status(403).json({ success: false, message: 'Token inválido ou expirado.' });
-        }
-        // Anexa os dados do usuário do token à requisição
-        req.user = decoded.data;
-        next();
-    });
+const isAuthenticated = (req, res, next) => {
+  if (req.session.user) {
+    next();
+  } else {
+    res.status(401).json({ success: false, message: 'Acesso não autenticado. Por favor, faça o login.' });
+  }
 };
-
-
 async function testDbConnection() {
   if (!pool) {
     console.error('Pool de conexões não inicializado. Não é possível testar a conexão.');
@@ -357,7 +334,7 @@ app.post('/api/login', async (req, res) => {
         if (!user) {
             return res.status(401).json({ success: false, message: 'Email não encontrado ou credenciais inválidas.' });
         }
-        if (user.is_auth !== 1) {
+        if (user.is_ssm !== 1) {
             return res.status(403).json({ success: false, message: 'Usuário não possui permissão para acessar o sistema.' });
         }
         const passwordMatches = await bcrypt.compare(password, user.password);
@@ -466,7 +443,7 @@ app.post('/api/service-orders', async (req, res) => {
     }
 });
 // Não esquecer de colocar ,isAutenthicated
-app.get('/api/service-orders',  async (req, res) => {
+app.get('/api/service-orders', isAuthenticated, async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
@@ -610,20 +587,14 @@ app.get('/api/me', (req, res) => {
 });
 
 app.post('/api/logout', (req, res) => {
-    // Apenas limpa o cookie do token JWT
-    res.clearCookie('auth_token', {
-        path: '/',
-        domain: 'mercotech.com.br' // Use o domínio correto
-    });
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ success: false, message: 'Não foi possível fazer logout.' });
+    }
+    res.clearCookie('connect.sid'); 
     res.status(200).json({ success: true, message: 'Logout bem-sucedido.' });
+  });
 });
-app.get('/api/check-auth', authenticateToken, (req, res) => {
-    // Se a requisição chegou aqui, o middleware 'authenticateToken' já validou o usuário.
-    // Apenas retornamos os dados do usuário que o middleware anexou em 'req.user'.
-    res.status(200).json({ success: true, user: req.user });
-});
-
-
 app.post('/api/service-orders/:orderId/cipa-analysis', async (req, res) => {
     const { orderId } = req.params;
     const {
