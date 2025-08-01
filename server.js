@@ -473,7 +473,7 @@ app.get('/api/service-orders', isAuthenticated, async (req, res) => {
                 createdAt: order.created_at,
                 // Converte os valores do banco (0, 1, null) para booleanos (false, true)
                 requiresEvaluation: !!order.requires_lab_evaluation,
-                // Lógica consistente para `requires_cipa` (considera null como true por padrão)
+                requesterName: order.requesterName || order.requestername, 
                 requires_cipa: order.requires_cipa === null || order.requires_cipa === undefined ? true : !!order.requires_cipa,
             })),
         });
