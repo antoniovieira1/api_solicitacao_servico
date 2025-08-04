@@ -1005,7 +1005,19 @@ app.get('/api/equipments', async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
-        const [rows] = await connection.execute('SELECT id, name FROM equipments ORDER BY name ASC');
+     
+        const query = `
+            SELECT id, name 
+            FROM equipments 
+            ORDER BY 
+                CASE 
+                    WHEN name = 'Não aplica' THEN 0 
+                    ELSE 1 
+                END, 
+                name ASC
+        `;
+        const [rows] = await connection.execute(query);
+        
         connection.release();
         res.json({ success: true, equipments: rows });
     } catch (error) {
