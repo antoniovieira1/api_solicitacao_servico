@@ -316,6 +316,7 @@ async function fetchOrderDetails(orderId) {
     if (connection) connection.release();
   }
 }
+
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -330,16 +331,24 @@ app.post('/api/login', async (req, res) => {
         }
         const usersObject = await response.json();
         const usersArray = Object.values(usersObject);
-        const user = usersArray.find(u => u.email === email);
-        if (!user) {
+        const potentialUsers = usersArray.filter(u => u.email === email);
+
+        if (potentialUsers.length === 0) {
             return res.status(401).json({ success: false, message: 'Email não encontrado ou credenciais inválidas.' });
         }
-        if (user.is_ssm !== 1) {
-            return res.status(403).json({ success: false, message: 'Usuário não possui permissão para acessar o sistema.' });
+        let authenticatedUser = null;
+        for (const user of potentialUsers) {
+            const passwordMatches = await bcrypt.compare(password, user.password);
+            if (passwordMatches) {
+                authenticatedUser = user;
+                break; 
+            }
         }
-        const passwordMatches = await bcrypt.compare(password, user.password);
-        if (!passwordMatches) {
+        if (!authenticatedUser) {
             return res.status(401).json({ success: false, message: 'Senha incorreta ou credenciais inválidas.' });
+        }
+  if (authenticatedUser.is_ssm !== 1) {
+            return res.status(403).json({ success: false, message: 'Usuário não possui permissão para acessar o sistema.' });
         }
         let connection;
         let userRole = 'solicitante';
@@ -357,16 +366,19 @@ app.post('/api/login', async (req, res) => {
         } finally {
             if (connection) connection.release();
         }
+
         req.session.user = {
-            email: user.email,
-            name: user.name,
+            email: authenticatedUser.email,
+            name: authenticatedUser.name,
             role: userRole,
         };
+
         res.status(200).json({
             success: true,
             message: 'Login bem-sucedido!',
             user: req.session.user,
         });
+
     } catch (error) {
         console.error('Erro geral no endpoint de login:', error);
         res.status(500).json({ success: false, message: error.message || 'Erro interno do servidor durante o login.' });
