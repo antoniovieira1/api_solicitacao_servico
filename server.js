@@ -316,50 +316,48 @@ async function fetchOrderDetails(orderId) {
     if (connection) connection.release();
   }
 }
+
 app.post('/api/login', async (req, res) => {
-    const { identifier, password } = req.body;
-    if (!identifier || !password) {
-        return res.status(400).json({ success: false, message: 'Identificador (email ou matrícula) e senha são obrigatórios.' });
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ success: false, message: 'Email e senha são obrigatórios.' });
     }
     try {
         const jsonUrl = 'https://mercotech.com.br/internos/data/users.json';
         const response = await fetch(jsonUrl);
-
         if (!response.ok) {
             console.error(`Falha ao buscar o arquivo de usuários em ${jsonUrl}. Status: ${response.status}`);
             throw new Error('Não foi possível acessar os dados de autenticação.');
         }
         const usersObject = await response.json();
         const usersArray = Object.values(usersObject);
-        const potentialUsers = usersArray.filter(u => u.email === identifier || u.matricula === identifier);
+        const potentialUsers = usersArray.filter(u => u.email === email);
+
         if (potentialUsers.length === 0) {
-            return res.status(401).json({ success: false, message: 'Usuário não encontrado ou credenciais inválidas.' });
+            return res.status(401).json({ success: false, message: 'Email não encontrado ou credenciais inválidas.' });
         }
         let authenticatedUser = null;
         for (const user of potentialUsers) {
             const passwordMatches = await bcrypt.compare(password, user.password);
             if (passwordMatches) {
                 authenticatedUser = user;
-                break;
+                break; 
             }
         }
-
         if (!authenticatedUser) {
             return res.status(401).json({ success: false, message: 'Senha incorreta ou credenciais inválidas.' });
         }
-        if (authenticatedUser.is_ssm !== 1) {
+  if (authenticatedUser.is_ssm !== 1) {
             return res.status(403).json({ success: false, message: 'Usuário não possui permissão para acessar o sistema.' });
         }
-
         let connection;
         let userRole = 'solicitante';
         try {
             connection = await pool.getConnection();
             const [roleRows] = await connection.execute(
                 'SELECT role FROM role_assignments WHERE email = ? LIMIT 1',
-                [authenticatedUser.email]
+                [email]
             );
-
             if (roleRows.length > 0) {
                 userRole = roleRows[0].role;
             }
@@ -368,6 +366,7 @@ app.post('/api/login', async (req, res) => {
         } finally {
             if (connection) connection.release();
         }
+
         req.session.user = {
             email: authenticatedUser.email,
             name: authenticatedUser.name,
