@@ -469,7 +469,7 @@ app.post('/api/service-orders', async (req, res) => {
     }
 });
 // Não esquecer de colocar ,isAutenthicated
-app.get('/api/service-orders',isAutenthicated, async (req, res) => {
+app.get('/api/service-orders',isAuthenticated, async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
