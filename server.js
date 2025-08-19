@@ -602,7 +602,7 @@ app.put('/api/service-orders/:orderId/pcm-analysis-data', async (req, res) => {
 
 
 //isAuthenticated,
-app.get('/api/me', (req, res) => {
+app.get('/api/me', isAuthenticated,(req, res) => {
   res.status(200).json({
     success: true,
     user: req.session.user
