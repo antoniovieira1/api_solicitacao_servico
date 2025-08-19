@@ -13,7 +13,7 @@ const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
   'https://www.mercotech.com.br',
-  'https://mercotech.com.br'
+  'https://mercotech.com.br',
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -316,12 +316,14 @@ async function fetchOrderDetails(orderId) {
     if (connection) connection.release();
   }
 }
-
 app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) {
-        return res.status(400).json({ success: false, message: 'Email e senha são obrigatórios.' });
+    // 1. Mudamos de 'email' para 'identifier' para ser genérico
+    const { identifier, password } = req.body;
+    if (!identifier || !password) {
+        // 2. Mensagem de erro atualizada
+        return res.status(400).json({ success: false, message: 'Usuário e senha são obrigatórios.' });
     }
+
     try {
         const jsonUrl = 'https://mercotech.com.br/internos/data/users.json';
         const response = await fetch(jsonUrl);
@@ -331,32 +333,44 @@ app.post('/api/login', async (req, res) => {
         }
         const usersObject = await response.json();
         const usersArray = Object.values(usersObject);
-        const potentialUsers = usersArray.filter(u => u.email === email);
+
+        // 3. A MÁGICA ACONTECE AQUI: Procuramos o usuário por e-mail OU por matrícula
+        // Usamos toLowerCase() para o e-mail não diferenciar maiúsculas/minúsculas
+        const potentialUsers = usersArray.filter(u => 
+            (u.email && u.email.toLowerCase() === identifier.toLowerCase()) || 
+            (u.matricula && u.matricula === identifier)
+        );
 
         if (potentialUsers.length === 0) {
-            return res.status(401).json({ success: false, message: 'Email não encontrado ou credenciais inválidas.' });
+            // 4. Mensagem de erro mais genérica
+            return res.status(401).json({ success: false, message: 'Usuário não encontrado ou credenciais inválidas.' });
         }
+
         let authenticatedUser = null;
         for (const user of potentialUsers) {
             const passwordMatches = await bcrypt.compare(password, user.password);
             if (passwordMatches) {
                 authenticatedUser = user;
-                break; 
+                break;
             }
         }
+
         if (!authenticatedUser) {
             return res.status(401).json({ success: false, message: 'Senha incorreta ou credenciais inválidas.' });
         }
-  if (authenticatedUser.is_ssm !== 1) {
+
+        if (authenticatedUser.is_ssm !== 1) {
             return res.status(403).json({ success: false, message: 'Usuário não possui permissão para acessar o sistema.' });
         }
+
         let connection;
         let userRole = 'solicitante';
         try {
             connection = await pool.getConnection();
+            // 5. IMPORTANTE: Usamos o e-mail do usuário ENCONTRADO para buscar a role
             const [roleRows] = await connection.execute(
                 'SELECT role FROM role_assignments WHERE email = ? LIMIT 1',
-                [email]
+                [authenticatedUser.email] // Usar o email do usuário autenticado
             );
             if (roleRows.length > 0) {
                 userRole = roleRows[0].role;
@@ -455,11 +469,10 @@ app.post('/api/service-orders', async (req, res) => {
     }
 });
 // Não esquecer de colocar ,isAutenthicated
-app.get('/api/service-orders', isAuthenticated, async (req, res) => {
+app.get('/api/service-orders',isAutenthicated, async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
-        // A consulta agora junta a tabela pcm_analysis para obter os campos necessários
         const sql = `
       SELECT 
         so.*, 
@@ -476,14 +489,12 @@ app.get('/api/service-orders', isAuthenticated, async (req, res) => {
         
         res.json({
             success: true,
-            // O mapeamento agora inclui as propriedades booleanas que o frontend precisa
             orders: rows.map(order => ({
                 ...order,
                 id: parseInt(order.id, 10),
                 service: order.service_description,
                 maintenanceType: order.maintenance_type,
                 createdAt: order.created_at,
-                // Converte os valores do banco (0, 1, null) para booleanos (false, true)
                 requiresEvaluation: !!order.requires_lab_evaluation,
                 requesterName: order.requesterName || order.requestername, 
                 requires_cipa: order.requires_cipa === null || order.requires_cipa === undefined ? true : !!order.requires_cipa,
@@ -1336,7 +1347,54 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
     }
 });
 
+app.delete('/api/service-orders/:id', async (req, res) => {
+    const { id } = req.params;
 
+    // Proteção básica para garantir que o usuário é admin
+    if (req.session.user?.role !== 'administrador') {
+        return res.status(403).json({ success: false, message: 'Acesso negado. Apenas administradores podem excluir ordens de serviço.' });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        // Lista de tabelas que têm uma referência para service_orders.id
+        // A ordem aqui é importante: delete das tabelas "filhas" primeiro.
+        const relatedTables = [
+            'pcm_execution', 
+            'lab_reevaluation',
+            'lab_analysis',
+            'cipa_analysis_temp',
+            'pcm_analysis'
+        ];
+
+        // Deleta os registros relacionados em cada tabela
+        for (const table of relatedTables) {
+            await connection.execute(`DELETE FROM ${table} WHERE service_order_id = ?`, [id]);
+        }
+
+        // Finalmente, deleta a ordem de serviço principal
+        const [result] = await connection.execute('DELETE FROM service_orders WHERE id = ?', [id]);
+
+        if (result.affectedRows === 0) {
+            throw new Error('Ordem de serviço não encontrada para exclusão.');
+        }
+
+        await connection.commit();
+        res.status(200).json({ success: true, message: 'Ordem de serviço e todos os dados relacionados foram excluídos com sucesso!' });
+
+    } catch (error) {
+        if (connection) {
+            await connection.rollback();
+        }
+        console.error(`Erro ao deletar OS ID ${id}:`, error);
+        res.status(500).json({ success: false, message: `Erro interno do servidor: ${error.message}` });
+    } finally {
+        if (connection) connection.release();
+    }
+});
 
 
 app.use((req, res, next) => {
