@@ -12,8 +12,8 @@ import { fileURLToPath } from 'url';
 const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
-  'https://www.mercotech.com.br',
   'https://mercotech.com.br',
+  'https://www.mercotech.com.br'
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -217,104 +217,104 @@ async function fetchOrderDetails(orderId) {
             const pcmExecutorInfo = allUsers.find(u => u.email === orderData.pcm_executed_by_email);
             const labReevaluatorInfo = allUsers.find(u => u.email === orderData.lab_reevaluator_email);
 
-                 const orderToReturn = {
-             id: parseInt(orderData.id, 10),
-             OSSM_ID: orderData.OSSM_ID,
-             sector: orderData.sector,
-             equipment: orderData.equipment,
-             location: orderData.location,
-             service: orderData.service_description,
-             component: orderData.component,
-             priority: orderData.priority,
-             maintenanceType: orderData.maintenance_type,
-             impactLevel: orderData.impact_level,
-             observation: orderData.observation,
-             requester_email: orderData.requester_email,
-             requesterName: requesterInfo ? requesterInfo.name : orderData.requester_email,
-             status: orderData.status,
-             createdAt: orderData.created_at,
-             updatedAt: orderData.updated_at,
-             pcmComments: orderData.pcm_comments,
-             requiresEvaluation: !!orderData.requires_lab_evaluation,
-             requires_cipa: orderData.requires_cipa === null || orderData.requires_cipa === undefined ? true : !!orderData.requires_cipa,
-             scheduledStartDate: orderData.scheduled_start_date,
-             scheduledEndDate: orderData.scheduled_end_date,
-             totalDowntime: orderData.total_downtime,
-             analystEmail: orderData.pcm_analyst_email,
-               
-                analystName: pcmAnalystInfo ? pcmAnalystInfo.name : orderData.pcm_analyst_email,
-             analysisDate: orderData.pcm_analysis_fill_date,
-             pcmApproval: (orderData.pcm_approver_email || orderData.pcm_approval_status !== null) ? {
-           approved: !!orderData.pcm_approval_status,
-           justification: orderData.pcm_approval_justification,
-               
-           userName: pcmApproverInfo ? pcmApproverInfo.name : (orderData.pcmApproverName || orderData.pcm_approver_email),
-           date: orderData.pcm_approval_date,
-         } : null,
-         cipaAnalysisData: orderData.cipa_analysis_id_on_temp ? {
-           id: orderData.cipa_analysis_id_on_temp,
-           requires_pet_pt: !!orderData.cipa_requires_pet_pt_on_temp,
-           pet_pt_id: orderData.cipa_pet_pt_id_on_temp,
-           comments: orderData.cipa_analysis_comments_on_temp,
-           analyst_email: orderData.cipa_analyst_email_on_temp,
-                       
-                          userName: cipaAnalystInfo ? cipaAnalystInfo.name : orderData.cipa_analyst_email_on_temp,
-            analysis_date: orderData.cipa_analysis_fill_date_on_temp,
-          } : null,
-          safetyValidation: orderData.cipa_action_approver_email ? {
-            approved: !!orderData.cipa_action_approved,
-            comments: orderData.cipa_action_approved ? orderData.cipa_action_approved_reason : orderData.cipa_action_rejection_reason,
-            userName: safetyApproverInfo ? safetyApproverInfo.name : orderData.cipa_action_approver_email,
-            rejectionReason: orderData.cipa_action_rejection_reason,
-            reasonapp: orderData.cipa_action_approved_reason,
-            reasondeny: orderData.cipa_action_rejection_reason,
-            date: orderData.cipa_action_approval_date,
-            petPtValidated: !!(orderData.cipa_requires_pet_pt_on_temp && orderData.cipa_pet_pt_id_on_temp),
-          } : null,
-          labAnalysisData: orderData.lab_analysis_id ? {
-            id: orderData.lab_analysis_id,
-            service_order_id: parseInt(orderData.id, 10),
-            liberado_uso: !!orderData.lab_liberado_uso,
-            requalificacao: !!orderData.lab_requalificacao,
-            comments: orderData.lab_analysis_comments,
-            lab_approval_email: orderData.lab_evaluator_email,
-            userName: labEvaluatorInfo ? labEvaluatorInfo.name : (orderData.labEvaluatorName || orderData.lab_evaluator_email),
-            analysis_date: orderData.lab_evaluation_date,
-          } : null,
-          pcmExecutionData: orderData.pcm_execution_id ? {
-            id: orderData.pcm_execution_id,
-            service_order_id: parseInt(orderData.id, 10),
-            execution_description: orderData.pcm_execution_description,
-            execution_responsible_name: orderData.execution_responsible_name,
-            executed_by_email: orderData.pcm_executed_by_email,
-            execution_date: orderData.pcm_execution_date,
-            houve_solicitacao_compra: !!orderData.pcm_houve_compra,
-            numero_solicitacao_compra: orderData.pcm_numero_compra,
-            userName: pcmExecutorInfo ? pcmExecutorInfo.name : (orderData.pcmExecutorName || orderData.pcm_executed_by_email),
-            execution_start_date: orderData.pcm_execution_start_date,
-            execution_end_date: orderData.pcm_execution_end_date,
-          } : null,
-          labReevaluationData: orderData.lab_reevaluation_id ? {
-            id: orderData.lab_reevaluation_id,
-            service_order_id: parseInt(orderData.id, 10),
-            comments: orderData.lab_reevaluation_comments,
-            evaluator_email: orderData.lab_reevaluator_email,
-            evaluation_date: orderData.lab_reevaluation_date,
-            releasedForUse: !!orderData.lab_reeval_liberado_uso,
-            userName: labReevaluatorInfo ? labReevaluatorInfo.name : (orderData.labReevaluatorName || orderData.lab_reevaluator_email),
-        } : null,
-        history: [],
-      };
-      return { success: true, order: orderToReturn };
-    } else {
-      return { success: false, message: 'Ordem de serviço não encontrada.' };
+               const orderToReturn = {
+                 id: parseInt(orderData.id, 10),
+                 OSSM_ID: orderData.OSSM_ID,
+                 sector: orderData.sector,
+                 equipment: orderData.equipment,
+                 location: orderData.location,
+                 service: orderData.service_description,
+                 component: orderData.component,
+                 priority: orderData.priority,
+                 maintenanceType: orderData.maintenance_type,
+                 impactLevel: orderData.impact_level,
+                 observation: orderData.observation,
+                 requester_email: orderData.requester_email,
+                 requesterName: requesterInfo ? requesterInfo.name : orderData.requester_email,
+                 status: orderData.status,
+                 createdAt: orderData.created_at,
+                 updatedAt: orderData.updated_at,
+                 pcmComments: orderData.pcm_comments,
+                 requiresEvaluation: !!orderData.requires_lab_evaluation,
+                 requires_cipa: orderData.requires_cipa === null || orderData.requires_cipa === undefined ? true : !!orderData.requires_cipa,
+                 scheduledStartDate: orderData.scheduled_start_date,
+                 scheduledEndDate: orderData.scheduled_end_date,
+                 totalDowntime: orderData.total_downtime,
+                 analystEmail: orderData.pcm_analyst_email,
+                   
+                   analystName: pcmAnalystInfo ? pcmAnalystInfo.name : orderData.pcm_analyst_email,
+                 analysisDate: orderData.pcm_analysis_fill_date,
+                 pcmApproval: (orderData.pcm_approver_email || orderData.pcm_approval_status !== null) ? {
+               approved: !!orderData.pcm_approval_status,
+               justification: orderData.pcm_approval_justification,
+                   
+               userName: pcmApproverInfo ? pcmApproverInfo.name : (orderData.pcmApproverName || orderData.pcm_approver_email),
+               date: orderData.pcm_approval_date,
+              } : null,
+              cipaAnalysisData: orderData.cipa_analysis_id_on_temp ? {
+                 id: orderData.cipa_analysis_id_on_temp,
+                 requires_pet_pt: !!orderData.cipa_requires_pet_pt_on_temp,
+                 pet_pt_id: orderData.cipa_pet_pt_id_on_temp,
+                 comments: orderData.cipa_analysis_comments_on_temp,
+                 analyst_email: orderData.cipa_analyst_email_on_temp,
+                                   
+                                     userName: cipaAnalystInfo ? cipaAnalystInfo.name : orderData.cipa_analyst_email_on_temp,
+                 analysis_date: orderData.cipa_analysis_fill_date_on_temp,
+               } : null,
+               safetyValidation: orderData.cipa_action_approver_email ? {
+                 approved: !!orderData.cipa_action_approved,
+                 comments: orderData.cipa_action_approved ? orderData.cipa_action_approved_reason : orderData.cipa_action_rejection_reason,
+                 userName: safetyApproverInfo ? safetyApproverInfo.name : orderData.cipa_action_approver_email,
+                 rejectionReason: orderData.cipa_action_rejection_reason,
+                 reasonapp: orderData.cipa_action_approved_reason,
+                 reasondeny: orderData.cipa_action_rejection_reason,
+                 date: orderData.cipa_action_approval_date,
+                 petPtValidated: !!(orderData.cipa_requires_pet_pt_on_temp && orderData.cipa_pet_pt_id_on_temp),
+               } : null,
+               labAnalysisData: orderData.lab_analysis_id ? {
+                 id: orderData.lab_analysis_id,
+                 service_order_id: parseInt(orderData.id, 10),
+                 liberado_uso: !!orderData.lab_liberado_uso,
+                 requalificacao: !!orderData.lab_requalificacao,
+                 comments: orderData.lab_analysis_comments,
+                 lab_approval_email: orderData.lab_evaluator_email,
+                 userName: labEvaluatorInfo ? labEvaluatorInfo.name : (orderData.labEvaluatorName || orderData.lab_evaluator_email),
+                 analysis_date: orderData.lab_evaluation_date,
+               } : null,
+               pcmExecutionData: orderData.pcm_execution_id ? {
+                 id: orderData.pcm_execution_id,
+                 service_order_id: parseInt(orderData.id, 10),
+                 execution_description: orderData.pcm_execution_description,
+                 execution_responsible_name: orderData.execution_responsible_name,
+                 executed_by_email: orderData.pcm_executed_by_email,
+                 execution_date: orderData.pcm_execution_date,
+                 houve_solicitacao_compra: !!orderData.pcm_houve_compra,
+                 numero_solicitacao_compra: orderData.pcm_numero_compra,
+                 userName: pcmExecutorInfo ? pcmExecutorInfo.name : (orderData.pcmExecutorName || orderData.pcm_executed_by_email),
+                 execution_start_date: orderData.pcm_execution_start_date,
+                 execution_end_date: orderData.pcm_execution_end_date,
+               } : null,
+               labReevaluationData: orderData.lab_reevaluation_id ? {
+                 id: orderData.lab_reevaluation_id,
+                 service_order_id: parseInt(orderData.id, 10),
+                 comments: orderData.lab_reevaluation_comments,
+                 evaluator_email: orderData.lab_reevaluator_email,
+                 evaluation_date: orderData.lab_reevaluation_date,
+                 releasedForUse: !!orderData.lab_reeval_liberado_uso,
+                 userName: labReevaluatorInfo ? labReevaluatorInfo.name : (orderData.labReevaluatorName || orderData.lab_reevaluator_email),
+             } : null,
+             history: [],
+           };
+           return { success: true, order: orderToReturn };
+        } else {
+          return { success: false, message: 'Ordem de serviço não encontrada.' };
+        }
+    } catch (error) {
+        console.error(`Erro ao buscar detalhes da OS ${orderId}:`, error);
+        return { success: false, message: 'Erro interno ao buscar detalhes da OS.' };
+    } finally {
+        if (connection) connection.release();
     }
-  } catch (error) {
-    console.error(`Erro ao buscar detalhes da OS ${orderId}:`, error);
-    return { success: false, message: 'Erro interno ao buscar detalhes da OS.' };
-  } finally {
-    if (connection) connection.release();
-  }
 }
 app.post('/api/login', async (req, res) => {
     // 1. Mudamos de 'email' para 'identifier' para ser genérico
@@ -469,7 +469,7 @@ app.post('/api/service-orders', async (req, res) => {
     }
 });
 // Não esquecer de colocar ,isAutenthicated
-app.get('/api/service-orders',isAuthenticated, async (req, res) => {
+app.get('/api/service-orders', isAuthenticated, async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
@@ -1016,7 +1016,7 @@ app.get('/api/equipments', async (req, res) => {
     let connection;
     try {
         connection = await pool.getConnection();
-     
+      
         const query = `
             SELECT id, name 
             FROM equipments 
@@ -1283,14 +1283,14 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
                             executePythonScript('notify_lab_for_reevaluation.py', [ossmIdForEmail, labEmails]);
                         }
                     }
-            
+                
                 } else {
                     finalOsStatus = 'finalizada';
                     
                     if (ossmIdForEmail && requesterEmailForCompletion) {
                         executePythonScript('notify_requester_on_completion.py', [ossmIdForEmail, requesterEmailForCompletion]);
                     }
-            
+                
                 }
                 break;
 
@@ -1346,6 +1346,73 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
         if (connection) connection.release();
     }
 });
+
+// NOVO ENDPOINT PARA CANCELAR OS
+app.post('/api/service-orders/:orderId/cancel', isAuthenticated, async (req, res) => {
+    const { orderId } = req.params;
+    const { reason } = req.body; // Opcional: pegar um motivo do frontend
+    const userRole = req.session.user?.role;
+
+    if (!['pcm', 'administrador'].includes(userRole)) {
+        return res.status(403).json({ success: false, message: 'Acesso negado. Apenas PCM ou Administradores podem cancelar uma OS.' });
+    }
+    
+    if (isNaN(parseInt(orderId))) {
+        return res.status(400).json({ success: false, message: 'ID da OS inválido.' });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        // 1. Verificar o status atual da OS
+        const [currentOrderRows] = await connection.execute('SELECT status FROM service_orders WHERE id = ?', [orderId]);
+        if (currentOrderRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ success: false, message: 'Ordem de serviço não encontrada.' });
+        }
+
+        const currentStatus = currentOrderRows[0].status;
+        if (currentStatus === 'finalizada') {
+            await connection.rollback();
+            return res.status(400).json({ success: false, message: 'Não é possível cancelar uma Ordem de Serviço que já foi finalizada.' });
+        }
+        
+        if (currentStatus === 'cancelada') {
+            await connection.rollback();
+            return res.status(400).json({ success: false, message: 'Esta Ordem de Serviço já está cancelada.' });
+        }
+
+        // 2. Atualizar o status para 'cancelada'
+        await connection.execute(
+            'UPDATE service_orders SET status = ?, updated_at = NOW() WHERE id = ?',
+            ['cancelada', orderId]
+        );
+        
+        // Opcional: Registrar quem cancelou e o motivo em uma tabela de histórico/log, se existir.
+        // Ex: await connection.execute('INSERT INTO order_history (order_id, user_email, action, comments) VALUES (?, ?, ?, ?)', [orderId, req.session.user.email, 'cancelamento', reason]);
+
+        await connection.commit();
+
+        const updatedOrderData = await fetchOrderDetails(orderId);
+        res.status(200).json({
+            success: true,
+            message: 'Ordem de Serviço cancelada com sucesso!',
+            order: updatedOrderData.order,
+        });
+
+    } catch (error) {
+        if (connection) {
+            await connection.rollback();
+        }
+        console.error(`Erro ao cancelar OS ID ${orderId}:`, error);
+        res.status(500).json({ success: false, message: `Erro interno do servidor: ${error.message}` });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
 
 app.delete('/api/service-orders/:id', async (req, res) => {
     const { id } = req.params;
