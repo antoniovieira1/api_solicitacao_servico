@@ -478,7 +478,8 @@ app.get('/api/service-orders', isAuthenticated, async (req, res) => {
         so.*, 
         i.Nome as requesterName,
         pa.requires_lab_evaluation,
-        pa.requires_cipa
+        pa.requires_cipa,
+        pa.scheduled_end_date
       FROM service_orders so
       LEFT JOIN imports i ON so.requester_email = i.Email
       LEFT JOIN pcm_analysis pa ON so.id = pa.service_order_id
@@ -498,6 +499,7 @@ app.get('/api/service-orders', isAuthenticated, async (req, res) => {
                 requiresEvaluation: !!order.requires_lab_evaluation,
                 requesterName: order.requesterName || order.requestername, 
                 requires_cipa: order.requires_cipa === null || order.requires_cipa === undefined ? true : !!order.requires_cipa,
+                scheduledEndDate: order.scheduled_end_date
             })),
         });
     } catch (error) {
@@ -1476,3 +1478,4 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
     console.log(`Servidor backend rodando na porta ${port}`);
 }); 
+
