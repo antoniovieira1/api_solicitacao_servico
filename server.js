@@ -12,8 +12,8 @@ import { fileURLToPath } from 'url';
 const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
+   'https://www.mercotech.com.br',
   'https://mercotech.com.br',
-  'https://www.mercotech.com.br'
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -429,7 +429,7 @@ app.post('/api/service-orders', async (req, res) => {
                 const [pcmRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['pcm']);
                 if (pcmRoles.length > 0) {
                     const pcmEmails = pcmRoles.map(role => role.email).join(',');
-                    executePythonScript('sendmailpcm.py', [newOrderId, pcmEmails]);
+                    //executePythonScript('sendmailpcm.py', [newOrderId, pcmEmails]);
                 }
             } catch (emailError) {
                 console.error("Erro ao tentar enviar e-mail para o PCM:", emailError);
@@ -583,7 +583,7 @@ app.put('/api/service-orders/:orderId/pcm-analysis-data', async (req, res) => {
                 const [cipaRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role IN (?)', [['cipa', 'seguranca']]);
                 if (cipaRoles.length > 0) {
                     const cipaEmails = cipaRoles.map(role => role.email).join(',');
-                    executePythonScript('sendmailcipa.py', [ossmId, cipaEmails]);
+                    //executePythonScript('sendmailcipa.py', [ossmId, cipaEmails]);
                 }
             }
         } catch (emailError) {
@@ -660,13 +660,13 @@ app.post('/api/service-orders/:orderId/cipa-analysis', async (req, res) => {
                     const [labRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['laboratorio']);
                     if (labRoles.length > 0) {
                         const labEmails = labRoles.map(r => r.email).join(',');
-                        executePythonScript('sendmaillab.py', [ossmId, labEmails]);
+                        //executePythonScript('sendmaillab.py', [ossmId, labEmails]);
                     }
                 } else {
                     const [pcmRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['pcm']);
                     if (pcmRoles.length > 0) {
                         const pcmEmails = pcmRoles.map(r => r.email).join(',');
-                        executePythonScript('sendcipatopcm.py', [ossmId, pcmEmails]);
+                        //executePythonScript('sendcipatopcm.py', [ossmId, pcmEmails]);
                     }
                 }
             }
@@ -839,7 +839,7 @@ app.get('/api/daily-tasks', async (req, res) => {
                 const [pcmRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['pcm']);
                 if (pcmRoles.length > 0) {
                     const pcmEmails = pcmRoles.map(r => r.email).join(',');
-                    executePythonScript('labtopcmfirst.py', [ossmId, pcmEmails]);
+                    //executePythonScript('labtopcmfirst.py', [ossmId, pcmEmails]);
                 }
             }
         } catch(emailError) {
@@ -885,15 +885,15 @@ app.post('/api/service-orders/:orderId/pcm-execution', async (req, res) => {
                     const [labRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['laboratorio']);
                     if (labRoles.length > 0) {
                         const labEmails = labRoles.map(r => r.email).join(',');
-                        executePythonScript('pcmexeclab.py', [ossmId, labEmails]);
+                        //executePythonScript('pcmexeclab.py', [ossmId, labEmails]);
                     }
                 } else {
                     if (requesterEmail) {
-                        executePythonScript('pcmtorequester.py', [ossmId, requesterEmail]);
+                        //executePythonScript('pcmtorequester.py', [ossmId, requesterEmail]);
                     }
                 }
             } else if (ossmId && requesterEmail) {
-                 executePythonScript('pcmtorequester.py', [ossmId, requesterEmail]);
+                 //executePythonScript('pcmtorequester.py', [ossmId, requesterEmail]);
             }
         } catch (emailError) {
             console.error("Erro na lógica de e-mail PcmExec->Lab/Requester:", emailError);
@@ -931,7 +931,7 @@ app.post('/api/service-orders/:orderId/lab-reevaluation', async (req, res) => {
             const ossmId = orderData[0]?.OSSM_ID;
             const requesterEmail = orderData[0]?.requester_email;
             if (ossmId && requesterEmail) {
-                executePythonScript('labreevaltorequester.py', [ossmId, requesterEmail]);
+                //executePythonScript('labreevaltorequester.py', [ossmId, requesterEmail]);
             }
         } catch (emailError) {
             console.error("Erro ao tentar enviar e-mail de finalização (Lab->Requester):", emailError);
@@ -1167,13 +1167,13 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
                         const [cipaRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role IN (?, ?)', ['cipa', 'seguranca']);
                         if (cipaRoles.length > 0) {
                             const cipaEmails = cipaRoles.map(role => role.email).join(',');
-                            executePythonScript('sendmailcipa.py', [ossmIdForEmail, cipaEmails]);
+                            //executePythonScript('sendmailcipa.py', [ossmIdForEmail, cipaEmails]);
                         }
                     } else if (needsLab && ossmIdForEmail) {
                         const [labRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['laboratorio']);
                         if (labRoles.length > 0) {
                             const labEmails = labRoles.map(r => r.email).join(',');
-                            executePythonScript('sendmaillab.py', [ossmIdForEmail, labEmails]);
+                            //executePythonScript('sendmaillab.py', [ossmIdForEmail, labEmails]);
                         }
                     }
 
@@ -1211,13 +1211,13 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
                             const [labRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['laboratorio']);
                             if (labRoles.length > 0) {
                                 const labEmails = labRoles.map(r => r.email).join(',');
-                                executePythonScript('notify_lab_after_cipa.py', [ossmIdForEmail, labEmails]);
+                                //executePythonScript('notify_lab_after_cipa.py', [ossmIdForEmail, labEmails]);
                             }
                         } else {
                             const [pcmRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['pcm']);
                             if (pcmRoles.length > 0) {
                                 const pcmEmails = pcmRoles.map(r => r.email).join(',');
-                                executePythonScript('notify_pcm_after_cipa.py', [ossmIdForEmail, pcmEmails]);
+                                //executePythonScript('notify_pcm_after_cipa.py', [ossmIdForEmail, pcmEmails]);
                             }
                         }
                     }
@@ -1243,7 +1243,7 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
                     const [pcmRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['pcm']);
                     if (pcmRoles.length > 0) {
                         const pcmEmails = pcmRoles.map(r => r.email).join(',');
-                        executePythonScript('labtopcmfirst.py', [ossmIdForEmail, pcmEmails]);
+                        //executePythonScript('labtopcmfirst.py', [ossmIdForEmail, pcmEmails]);
                     }
                 }
                 finalOsStatus = 'pendente_execucao_servico';
@@ -1282,7 +1282,7 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
                         const [labRoles] = await connection.execute('SELECT email FROM role_assignments WHERE role = ?', ['laboratorio']);
                         if (labRoles.length > 0) {
                             const labEmails = labRoles.map(r => r.email).join(',');
-                            executePythonScript('notify_lab_for_reevaluation.py', [ossmIdForEmail, labEmails]);
+                            //executePythonScript('notify_lab_for_reevaluation.py', [ossmIdForEmail, labEmails]);
                         }
                     }
                 
@@ -1290,7 +1290,7 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
                     finalOsStatus = 'finalizada';
                     
                     if (ossmIdForEmail && requesterEmailForCompletion) {
-                        executePythonScript('notify_requester_on_completion.py', [ossmIdForEmail, requesterEmailForCompletion]);
+                        //executePythonScript('notify_requester_on_completion.py', [ossmIdForEmail, requesterEmailForCompletion]);
                     }
                 
                 }
@@ -1306,7 +1306,7 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
                 finalOsStatus = 'finalizada';
                 
                 if (ossmIdForEmail && requesterEmailForCompletion) {
-                    executePythonScript('notify_requester_on_completion.py', [ossmIdForEmail, requesterEmailForCompletion]);
+                    //executePythonScript('notify_requester_on_completion.py', [ossmIdForEmail, requesterEmailForCompletion]);
                 }
         
                 break;
@@ -1349,10 +1349,9 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
     }
 });
 
-// NOVO ENDPOINT PARA CANCELAR OS
 app.post('/api/service-orders/:orderId/cancel', isAuthenticated, async (req, res) => {
     const { orderId } = req.params;
-    const { reason } = req.body; // Opcional: pegar um motivo do frontend
+    const { reason } = req.body;
     const userRole = req.session.user?.role;
 
     if (!['pcm', 'administrador'].includes(userRole)) {
@@ -1367,8 +1366,6 @@ app.post('/api/service-orders/:orderId/cancel', isAuthenticated, async (req, res
     try {
         connection = await pool.getConnection();
         await connection.beginTransaction();
-
-        // 1. Verificar o status atual da OS
         const [currentOrderRows] = await connection.execute('SELECT status FROM service_orders WHERE id = ?', [orderId]);
         if (currentOrderRows.length === 0) {
             await connection.rollback();
@@ -1385,16 +1382,10 @@ app.post('/api/service-orders/:orderId/cancel', isAuthenticated, async (req, res
             await connection.rollback();
             return res.status(400).json({ success: false, message: 'Esta Ordem de Serviço já está cancelada.' });
         }
-
-        // 2. Atualizar o status para 'cancelada'
         await connection.execute(
             'UPDATE service_orders SET status = ?, updated_at = NOW() WHERE id = ?',
             ['cancelada', orderId]
         );
-        
-        // Opcional: Registrar quem cancelou e o motivo em uma tabela de histórico/log, se existir.
-        // Ex: await connection.execute('INSERT INTO order_history (order_id, user_email, action, comments) VALUES (?, ?, ?, ?)', [orderId, req.session.user.email, 'cancelamento', reason]);
-
         await connection.commit();
 
         const updatedOrderData = await fetchOrderDetails(orderId);
@@ -1415,11 +1406,10 @@ app.post('/api/service-orders/:orderId/cancel', isAuthenticated, async (req, res
     }
 });
 
+//api delete
 
 app.delete('/api/service-orders/:id', async (req, res) => {
     const { id } = req.params;
-
-    // Proteção básica para garantir que o usuário é admin
     if (req.session.user?.role !== 'administrador') {
         return res.status(403).json({ success: false, message: 'Acesso negado. Apenas administradores podem excluir ordens de serviço.' });
     }
@@ -1428,9 +1418,6 @@ app.delete('/api/service-orders/:id', async (req, res) => {
     try {
         connection = await pool.getConnection();
         await connection.beginTransaction();
-
-        // Lista de tabelas que têm uma referência para service_orders.id
-        // A ordem aqui é importante: delete das tabelas "filhas" primeiro.
         const relatedTables = [
             'pcm_execution', 
             'lab_reevaluation',
@@ -1438,13 +1425,10 @@ app.delete('/api/service-orders/:id', async (req, res) => {
             'cipa_analysis_temp',
             'pcm_analysis'
         ];
-
-        // Deleta os registros relacionados em cada tabela
         for (const table of relatedTables) {
             await connection.execute(`DELETE FROM ${table} WHERE service_order_id = ?`, [id]);
         }
 
-        // Finalmente, deleta a ordem de serviço principal
         const [result] = await connection.execute('DELETE FROM service_orders WHERE id = ?', [id]);
 
         if (result.affectedRows === 0) {
@@ -1466,6 +1450,7 @@ app.delete('/api/service-orders/:id', async (req, res) => {
 });
 
 
+
 app.use((req, res, next) => {
     res.status(404).json({ success: false, message: 'Rota não encontrada.' });
 });
@@ -1478,4 +1463,3 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
     console.log(`Servidor backend rodando na porta ${port}`);
 }); 
-
