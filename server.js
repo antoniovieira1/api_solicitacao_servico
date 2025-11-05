@@ -52,10 +52,10 @@ try {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '5', 10),
-    connectTimeout: 20000,
+    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10', 10),
+    connectTimeout: 10000,
     waitForConnections: true,
-    queueLimit: 0,
+    queueLimit: 10,
     enableKeepAlive: true,      
     keepAliveInitialDelay: 10000
   });
@@ -1463,3 +1463,4 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
     console.log(`Servidor backend rodando na porta ${port}`);
 }); 
+
