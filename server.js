@@ -38,9 +38,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false,  //não esquecer de mudar para true no deploy     
+      secure: true,  //não esquecer de mudar para true no deploy     
       httpOnly: true,     
-      sameSite: 'lax',   //mudar para none no deploy
+      sameSite: 'none',   //mudar para none no deploy
       maxAge: 24 * 60 * 60 * 1000
     },
   })
