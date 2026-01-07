@@ -12,8 +12,8 @@ import { fileURLToPath } from 'url';
 const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
-   'https://www.mercotech.com.br',
-  'https://mercotech.com.br',
+   'https://mercotech.com.br',
+   'https://www.mercotech.com.br'
 ];
 const corsOptions = {
   origin: function (origin, callback) {
@@ -1155,8 +1155,20 @@ app.post('/api/service-orders/:orderId/status', async (req, res) => {
 
                 if (pcmApprovalData.approved) {
                     if (ossmIdForEmail === null) {
-                        const [maxIdRows] = await connection.execute('SELECT MAX(OSSM_ID) as max_id FROM service_orders');
-                        ossmIdForEmail = (maxIdRows[0].max_id || 973) + 1;
+                        const [dateRow] = await connection.execute('SELECT created_at FROM service_orders WHERE id = ?', [orderId]);
+                        const orderDate = dateRow.length > 0 ? new Date(dateRow[0].created_at) : new Date();
+                        const orderYear = orderDate.getFullYear();
+                        const [maxIdRows] = await connection.execute(
+                            'SELECT MAX(OSSM_ID) as max_id FROM service_orders WHERE YEAR(created_at) = ?', 
+                            [orderYear]
+                        );
+                        const currentMax = maxIdRows[0].max_id;
+                        if (currentMax === null) {
+                            ossmIdForEmail = 1;
+                        } else {
+                            ossmIdForEmail = currentMax + 1;
+                        }
+                    console.log(`[DEBUG] Novo OSSM_ID definido: ${ossmIdForEmail}`);
                         await connection.execute('UPDATE service_orders SET OSSM_ID = ? WHERE id = ?', [ossmIdForEmail, orderId]);
                     }
                     
@@ -1463,4 +1475,3 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
     console.log(`Servidor backend rodando na porta ${port}`);
 }); 
-
