@@ -13,6 +13,7 @@ const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
    'https://mercotech.com.br',
+   'http://localhost:8080',
    'https://www.mercotech.com.br'
 ];
 const corsOptions = {
@@ -37,9 +38,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: true,  //não esquecer de mudar para true no deploy     
+      secure: false,  //não esquecer de mudar para true no deploy     
       httpOnly: true,     
-      sameSite: 'none',   //mudar para none no deploy
+      sameSite: 'lax',   //mudar para none no deploy
       maxAge: 24 * 60 * 60 * 1000
     },
   })
@@ -55,7 +56,7 @@ try {
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10', 10),
     connectTimeout: 10000,
     waitForConnections: true,
-    queueLimit: 10,
+    queueLimit: 20,
     enableKeepAlive: true,      
     keepAliveInitialDelay: 10000
   });
@@ -631,6 +632,7 @@ app.post('/api/service-orders/:orderId/cipa-analysis', async (req, res) => {
     if (typeof requires_pet_pt !== 'boolean' || !cipa_analyst_email) {
         return res.status(400).json({ success: false, message: 'Campos obrigatórios ausentes para salvar análise CIPA (requires_pet_pt, cipa_analyst_email).' });
     }
+    
     let connection;
     try {
         connection = await pool.getConnection();
@@ -684,9 +686,11 @@ app.post('/api/service-orders/:orderId/cipa-analysis', async (req, res) => {
             throw new Error(updatedOrderData.message || 'Erro ao rebuscar OS após salvar análise CIPA.');
         }
     } catch (error) {
-        if (connection) connection.release();
         console.error(`Erro ao salvar análise CIPA para OS ID ${orderId}:`, error);
         res.status(500).json({ success: false, message: `Erro interno: ${error.message}` });
+    } finally {
+        // CORREÇÃO CRÍTICA: O finally garante que a conexão será fechada SEMPRE
+        if (connection) connection.release();
     }
 });
 const allowedRoles = ['pcm', 'cipa', 'seguranca', 'laboratorio', 'administrador'];
