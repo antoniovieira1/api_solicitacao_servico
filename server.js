@@ -13,7 +13,6 @@ const app = express();
 const port = process.env.PORT || 3001;
 const allowedOrigins = [
    'https://mercotech.com.br',
-   'http://localhost:8080',
    'https://www.mercotech.com.br'
 ];
 const corsOptions = {
@@ -1479,3 +1478,4 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
     console.log(`Servidor backend rodando na porta ${port}`);
 }); 
+
