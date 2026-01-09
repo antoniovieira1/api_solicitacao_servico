@@ -146,6 +146,8 @@ async function fetchOrderDetails(orderId) {
         so.status,
         so.created_at,
         so.updated_at,
+        soe.user_name as last_editor_name,
+        soe.edit_date as last_edit_date,
         pa.pcm_comments, pa.requires_lab_evaluation, pa.scheduled_start_date,
         pa.scheduled_end_date, pa.total_downtime,
         pa.analyst_email AS pcm_analyst_email, 
@@ -191,6 +193,11 @@ async function fetchOrderDetails(orderId) {
         lab_reevaluator_user.Nome as labReevaluatorName,
         lr.evaluation_date AS lab_reevaluation_date
         FROM service_orders so
+        LEFT JOIN (
+        SELECT service_order_id, user_name, edit_date 
+        FROM service_order_edits 
+        WHERE id IN (SELECT MAX(id) FROM service_order_edits GROUP BY service_order_id)
+         ) soe ON so.id = soe.service_order_id
         LEFT JOIN pcm_analysis pa ON so.id = pa.service_order_id
         LEFT JOIN imports pcm_approver_user ON pa.pcm_approver_email = pcm_approver_user.Email
         LEFT JOIN cipa_analysis_temp ca ON so.id = ca.service_order_id
@@ -234,6 +241,8 @@ async function fetchOrderDetails(orderId) {
                  status: orderData.status,
                  createdAt: orderData.created_at,
                  updatedAt: orderData.updated_at,
+                 lastEditorName: orderData.last_editor_name,
+                 lastEditDate: orderData.last_edit_date,
                  pcmComments: orderData.pcm_comments,
                  requiresEvaluation: !!orderData.requires_lab_evaluation,
                  requires_cipa: orderData.requires_cipa === null || orderData.requires_cipa === undefined ? true : !!orderData.requires_cipa,
@@ -1421,7 +1430,40 @@ app.post('/api/service-orders/:orderId/cancel', isAuthenticated, async (req, res
     }
 });
 
-//api delete
+app.put('/api/service-orders/:id/details', isAuthenticated, async (req, res) => {
+    const { id } = req.params;
+    const { sector, equipment, location, service, observation, userEmail, userName } = req.body;
+    if (req.session.user.email !== 'ana.souza@mercotech.com.br') {
+        return res.status(403).json({ success: false, message: 'Acesso negado para edição.' });
+    }
+
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+        const updateSql = `
+            UPDATE service_orders 
+            SET sector = ?, equipment = ?, location = ?, service_description = ?, observation = ?, updated_at = NOW()
+            WHERE id = ?
+        `;
+        await connection.execute(updateSql, [sector, equipment, location, service, observation, id]);
+        const logSql = `
+            INSERT INTO service_order_edits (service_order_id, user_email, user_name, edit_date)
+            VALUES (?, ?, ?, NOW())
+        `;
+        await connection.execute(logSql, [id, userEmail, userName]);
+        await connection.commit();
+        const updatedOrderData = await fetchOrderDetails(id);
+        res.json(updatedOrderData);
+
+    } catch (error) {
+        if (connection) await connection.rollback();
+        console.error('Erro ao editar OS:', error);
+        res.status(500).json({ success: false, message: 'Erro ao salvar edição.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
 
 app.delete('/api/service-orders/:id', async (req, res) => {
     const { id } = req.params;
@@ -1475,7 +1517,8 @@ app.use((err, req, res, next) => {
     res.status(500).json({ success: false, message: 'Ocorreu um erro inesperado no servidor.' });
 });
 
+
+
 app.listen(port, () => {
     console.log(`Servidor backend rodando na porta ${port}`);
 }); 
-
